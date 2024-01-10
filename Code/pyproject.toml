@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "thesis10-1"
+version = "0.1.0"
+description = "Second attempt of making thesis env work"
+authors = ["Liv T"]
+readme = "README.md"
+packages = [{include = "thesis10"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+ipykernel = "^6.28.0"
+pandas = "^2.1.4"
+numpy = "^1.26.3"
+matplotlib = "^3.8.2"
+datetime = "^5.4"
+seaborn = "^0.13.1"
+dask = "^2023.12.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
