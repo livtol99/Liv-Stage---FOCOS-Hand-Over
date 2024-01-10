@@ -32,7 +32,7 @@ def load_data_in_chunks(data_path, chunksize= 100):
     # Define the data types for the columns
     dtypes = {'cursor': 'object'}
     # Read the CSV files in chunks
-    chunks = {name: pd.read_csv(path, dtype=dtypes, chunksize=chunksize) for name, path in file_paths.items() if name != 'readme'}
+    chunks = {name: pd.read_csv(path, dtype=dtypes, chunksize=chunksize, quoting=csv.QUOTE_NONE) for name, path in file_paths.items() if name != 'readme'}
     # Read the 'README.org' file
     with open(file_paths['readme'], 'r') as file:
         chunks['readme'] = file.read()
