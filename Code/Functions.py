@@ -20,7 +20,7 @@ def load_data(data_path):
         data['readme'] = file.read()
     return data
 
-def load_data_in_chunks(data_path, chunksize= 100):
+def load_data_in_chunks(data_path, chunksize= 1000):
     # Define the file paths
     file_paths = {
         'bios': os.path.join(data_path, 'markers_bios_2023-05-19.csv'),
