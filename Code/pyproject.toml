@@ -17,6 +17,7 @@ seaborn = "^0.13.1"
 dask = "^2023.12.1"
 importlib = "^1.0.4"
 nltk = "^3.8.1"
+psutil = "^5.9.7"
 
 
 [build-system]
