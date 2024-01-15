@@ -2,6 +2,8 @@ import pandas as pd
 from unidecode import unidecode
 from langdetect import detect, DetectorFactory, LangDetectException
 import emoji
+from collections import defaultdict
+import csv
 
 
 def print_lines(path, file, start_line, end_line):
@@ -140,4 +142,136 @@ def inspect_dict(dictionary, n):
     print(f"First {n} items in the dictionary:")
     for _ in range(n):
         print(next(items))
+
+
+def add_extrabrands(indices_to_change, dfm_other, dfm_french, path):
+    """
+    Process dataframes based on given indices, print the head of both dataframes, and save them to CSV files.
+
+    Parameters:
+    indices_to_change (list): The indices to change in dfm_other.
+    dfm_other (DataFrame): The dataframe to process.
+    dfm_french (DataFrame): The dataframe to add selected rows to.
+    path (str): The path to save the CSV files.
+
+    Prints:
+    The head of both dataframes and a success message after saving the dataframes to CSV files.
+    """
+    dfm_other = dfm_other.copy()
+    dfm_other['corrected_language_country'] = ''
+    dfm_other.loc[indices_to_change, 'corrected_language_country'] = 'fr'
+
+    # Adding the identified rows to the french df
+    selected_rows = dfm_other[dfm_other['corrected_language_country'] == 'fr']
+    dfm_french = pd.concat([dfm_french, selected_rows])
+
+    # Print the head of both dataframes
+    print("dfm_french:")
+    print(dfm_french.head())
+    print("\ndfm_other:")
+    print(dfm_other.head())
+
+    # Write the dataframes to CSV files
+    dfm_french.to_csv(f'{path}/french_brands.csv', index=False)
+    dfm_other.to_csv(f'{path}/other_brands.csv', index=False)
+
+    print("Both dataframes were successfully written to CSV files.")
+
+
+
+def create_brands_per_follower_dict(file_path):
+    """
+    Create a dictionary of follower_id as keys and brands as values from a CSV file.
+
+    Parameters:
+    file_path (str): The path to the CSV file.
+
+    Returns:
+    tuple: A tuple containing two dictionaries. The first dictionary has follower_id as keys and brands as values.
+           The second dictionary has follower_id as keys and the count of brands as values.
+    """
+    # Create a dictionary of keys:follower_id and value: brands
+    brands_per_follower = defaultdict(set)
+
+    # Open the CSV file
+    with open(file_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Add the brand id to the set of brands for this follower
+            brands_per_follower[row['follower_id']].add(row['id'])
+
+    # Convert the sets to counts to see how many brands each follower follows
+    brands_per_follower_count = {follower_id: len(brands) for follower_id, brands in brands_per_follower.items()}
+
+    return brands_per_follower, brands_per_follower_count
+
+def create_followers_per_brand_dict(df):
+    """
+    Create a dictionary of brand_id as keys and followers as values from a DataFrame.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame.
+
+    Returns:
+    dict: A dictionary with brand_id as keys and the count of followers as values.
+    """
+    # Create a dictionary of keys:brand_id and value: followers
+    followers_per_brand = defaultdict(set)
+
+    for index, row in df.iterrows():
+        # Add the follower id to the set of followers for this brand
+        followers_per_brand[row['id']].add(row['follower_id'])
+
+    # Convert the sets to counts to see how many followers each brand has
+    followers_per_brand_count = {brand_id: len(followers) for brand_id, followers in followers_per_brand.items()}
+
+    return followers_per_brand_count
+
+
+def inspect_and_filter_followers(brands_per_follower, num_brands, num_items, remove=False):
+    """
+    Filter followers who follow less than a certain number of brands, print statistics, and optionally remove them.
+
+    Parameters:
+    brands_per_follower (dict): The dictionary of followers and brands.
+    num_brands (int): The minimum number of brands a follower should follow.
+    remove (bool): Whether to remove followers who follow less than num_brands brands.
+
+    Returns:
+    dict: The filtered dictionary of followers and brands if remove is True, otherwise the original dictionary.
+    """
+    # Initialize filtered_brands_per_follower with the original dictionary
+    filtered_brands_per_follower = brands_per_follower
+
+    # How many users follow less than num_brands brands?
+    count = sum(1 for brands in brands_per_follower.values() if len(brands) < num_brands)
+
+    # Calculate the percentage
+    percentage = (count / len(brands_per_follower)) * 100
+
+    # Calculate the percentage of the remaining data
+    remaining_percentage = 100 - percentage
+
+    # Calculate the number of remaining users
+    remaining_users = len(brands_per_follower) - count
+
+    print(f"The number of keys that follow less than {num_brands} IDs is {count}, which is {percentage:.2f}% of the total. Removing these leaves {remaining_percentage:.2f}% of the data, or {remaining_users} users.")
+
+    if remove:
+        print("Deleting rows ...")
+        # Filter the dictionary
+        filtered_brands_per_follower = {follower_id: brands for follower_id, brands in brands_per_follower.items() if len(brands) >= num_brands}
+
+        # Inspect first key value pairs in filtered dict
+        items = iter(filtered_brands_per_follower.items())
+
+        # Get the first 5 items
+        print(f"First {num_items} items in the filtered dictionary:")
+        for _ in range(num_items):
+            print(next(items))
+
+    return filtered_brands_per_follower
+
+
+
 
