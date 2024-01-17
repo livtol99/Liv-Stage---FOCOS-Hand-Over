@@ -11,11 +11,11 @@ def print_lines(path, file, start_line, end_line):
     Print lines from a file within a given range.
     """
     with open(f"{path}/{file}", 'r') as f:
+        print(f"Printing lines from file: {file}")
         for i in range(end_line):
             line = f.readline()
             if i >= start_line:
                 print(line)
-
 def fileloader(path, file, req_cols, dtypes):
     """
     Load a CSV file into a pandas DataFrame.
@@ -30,6 +30,33 @@ def fileloader(path, file, req_cols, dtypes):
     pd.DataFrame: The loaded data.
     """
     return pd.read_csv(f"{path}/{file}", delimiter=',', quotechar='"', low_memory=False, usecols=req_cols, dtype=dtypes)
+
+
+def load_and_rename(load_path, save_path, file, req_cols, dtypes, new_column_names):
+    """
+    Load a CSV file into a DataFrame, rename the columns, and save the DataFrame back to a CSV file.
+
+    Parameters:
+    load_path (str): The path to the CSV file to load.
+    save_path (str): The path to save the CSV file.
+    file (str): The name of the CSV file.
+    req_cols (list): The list of required columns.
+    dtypes (dict): The dictionary of data types for the columns.
+    new_column_names (dict): The dictionary of new column names.
+
+    Returns:
+    pd.DataFrame: The DataFrame with renamed columns.
+    """
+    # Load the CSV file into a DataFrame
+    df = fileloader(load_path, file, req_cols, dtypes)
+
+    # Rename the columns
+    df.rename(columns=new_column_names, inplace=True)
+
+    # Save the DataFrame back to a CSV file
+    df.to_csv(f'{save_path}/{file}', index=False)
+
+    return df
 
 def remove_emoji(string):
     """
@@ -144,38 +171,44 @@ def inspect_dict(dictionary, n):
         print(next(items))
 
 
-def add_extrabrands(indices_to_change, dfm_other, dfm_french, path):
+def add_extrabrands(indices_to_change, markers_bios_other, markers_bios_french, path):
     """
     Process dataframes based on given indices, print the head of both dataframes, and save them to CSV files.
 
     Parameters:
-    indices_to_change (list): The indices to change in dfm_other.
-    dfm_other (DataFrame): The dataframe to process.
-    dfm_french (DataFrame): The dataframe to add selected rows to.
+    indices_to_change (list): The indices to change in markers_bios_other.
+    markers_bios_other (DataFrame): The dataframe to process.
+    markers_bios_french (DataFrame): The dataframe to add selected rows to.
     path (str): The path to save the CSV files.
 
     Prints:
     The head of both dataframes and a success message after saving the dataframes to CSV files.
+
+    Returns:
+    pd.DataFrame: The updated markers_bios_french DataFrame.
     """
-    dfm_other = dfm_other.copy()
-    dfm_other['corrected_language_country'] = ''
-    dfm_other.loc[indices_to_change, 'corrected_language_country'] = 'fr'
+    markers_bios_other = markers_bios_other.copy()
+    markers_bios_other['corrected_language_country'] = ''
+    markers_bios_other.loc[indices_to_change, 'corrected_language_country'] = 'fr'
 
     # Adding the identified rows to the french df
-    selected_rows = dfm_other[dfm_other['corrected_language_country'] == 'fr']
-    dfm_french = pd.concat([dfm_french, selected_rows])
+    selected_rows = markers_bios_other[markers_bios_other['corrected_language_country'] == 'fr']
+    markers_bios_french = pd.concat([markers_bios_french, selected_rows])
 
     # Print the head of both dataframes
-    print("dfm_french:")
-    print(dfm_french.head())
-    print("\ndfm_other:")
-    print(dfm_other.head())
+    print("markers_bios_french:")
+    print(markers_bios_french.head())
+    print("\markers_bios_other:")
+    print(markers_bios_other.head())
 
     # Write the dataframes to CSV files
-    dfm_french.to_csv(f'{path}/french_brands.csv', index=False)
-    dfm_other.to_csv(f'{path}/other_brands.csv', index=False)
+    markers_bios_french.to_csv(f'{path}/markers_bios_french.csv', index=False)
+    markers_bios_other.to_csv(f'{path}/markers_bios_other.csv', index=False)
 
     print("Both dataframes were successfully written to CSV files.")
+
+    # Return the updated markers_bios_french DataFrame
+    return markers_bios_french
 
 
 
@@ -198,19 +231,19 @@ def create_brands_per_follower_dict(file_path):
         reader = csv.DictReader(f)
         for row in reader:
             # Add the brand id to the set of brands for this follower
-            brands_per_follower[row['follower_id']].add(row['id'])
+            brands_per_follower[row['follower_id']].add(row['marker_id'])
 
     # Convert the sets to counts to see how many brands each follower follows
     brands_per_follower_count = {follower_id: len(brands) for follower_id, brands in brands_per_follower.items()}
 
     return brands_per_follower, brands_per_follower_count
 
-def create_followers_per_brand_dict(df):
+def create_followers_per_brand_dict(file_path):
     """
-    Create a dictionary of brand_id as keys and followers as values from a DataFrame.
+    Create a dictionary of brand_id as keys and followers as values from a CSV file.
 
     Parameters:
-    df (pandas.DataFrame): The DataFrame.
+    file_path (str): The path to the CSV file.
 
     Returns:
     dict: A dictionary with brand_id as keys and the count of followers as values.
@@ -218,9 +251,12 @@ def create_followers_per_brand_dict(df):
     # Create a dictionary of keys:brand_id and value: followers
     followers_per_brand = defaultdict(set)
 
-    for index, row in df.iterrows():
-        # Add the follower id to the set of followers for this brand
-        followers_per_brand[row['id']].add(row['follower_id'])
+    # Open the CSV file
+    with open(file_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Add the follower id to the set of followers for this brand
+            followers_per_brand[row['marker_id']].add(row['follower_id'])
 
     # Convert the sets to counts to see how many followers each brand has
     followers_per_brand_count = {brand_id: len(followers) for brand_id, followers in followers_per_brand.items()}
@@ -272,6 +308,24 @@ def inspect_and_filter_followers(brands_per_follower, num_brands, num_items, rem
 
     return filtered_brands_per_follower
 
+def streamline_ids(target_df, target_column, source_df, source_column):
+    initial_rows = len(target_df)
+    filtered_df = target_df[target_df[target_column].isin(source_df[source_column])]
+    final_rows = len(filtered_df)
+    print(f"Removed {initial_rows - final_rows} rows.")
+    print(f"{final_rows} rows are left.")
+    return filtered_df
 
+
+def streamline_ids_dict(target_df, target_column, source_dict):
+    # Convert the keys of source_dict to floats
+    source_keys = [float(key) for key in source_dict.keys()]
+    
+    initial_rows = len(target_df)
+    filtered_df = target_df[target_df[target_column].isin(source_keys)]
+    final_rows = len(filtered_df)
+    print(f"Removed {initial_rows - final_rows} rows.")
+    print(f"{final_rows} rows are left.")
+    return filtered_df
 
 
