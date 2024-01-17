@@ -312,10 +312,18 @@ def streamline_ids(target_df, target_column, source_df, source_column):
     initial_rows = len(target_df)
     filtered_df = target_df[target_df[target_column].isin(source_df[source_column])]
     final_rows = len(filtered_df)
+    
+    # Sanity check
+    unique_target = filtered_df[target_column].nunique()
+    unique_source = source_df[source_column].nunique()
+    if unique_target == unique_source:
+        print("Sanity check passed: The number of unique values in the source and target columns are identical.")
+    else:
+        print(f"Sanity check failed: The number of unique values in the source column ({unique_source}) and target column ({unique_target}) are not identical.")
+    
     print(f"Removed {initial_rows - final_rows} rows.")
     print(f"{final_rows} rows are left.")
     return filtered_df
-
 
 def streamline_ids_dict(target_df, target_column, source_dict):
     # Convert the keys of source_dict to floats
@@ -324,8 +332,16 @@ def streamline_ids_dict(target_df, target_column, source_dict):
     initial_rows = len(target_df)
     filtered_df = target_df[target_df[target_column].isin(source_keys)]
     final_rows = len(filtered_df)
+    
+    # Sanity check
+    unique_target = filtered_df[target_column].nunique()
+    unique_source = len(source_keys)
+    if unique_target == unique_source:
+        print("Sanity check passed: The number of unique values in the source and target columns are identical.")
+    else:
+        print(f"Sanity check failed: The number of unique values in the source column ({unique_source}) and target column ({unique_target}) are not identical.")
+    
     print(f"Removed {initial_rows - final_rows} rows.")
     print(f"{final_rows} rows are left.")
     return filtered_df
-
 
