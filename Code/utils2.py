@@ -1,0 +1,117 @@
+import pandas as pd
+from unidecode import unidecode
+from langdetect import detect, DetectorFactory, LangDetectException
+import emoji
+from collections import defaultdict
+import csv
+
+
+def print_lines(path, file, start_line, end_line):
+    """
+    Print lines from a file within a given range.
+    """
+    with open(f"{path}/{file}", 'r') as f:
+        print(f"Printing lines from file: {file}")
+        for i in range(end_line):
+            line = f.readline()
+            if i >= start_line:
+                print(line)
+
+def fileloader(path, file, req_cols, dtypes):
+    """
+    Load a CSV file into a pandas DataFrame.
+
+    Parameters:
+    path (str): The path to the directory containing the file.
+    file (str): The name of the file to load.
+    req_cols (list): The list of column names to load from the file.
+    dtypes (dict): A dictionary mapping column names to data types.
+
+    Returns:
+    pd.DataFrame: The loaded data.
+    """
+    return pd.read_csv(f"{path}/{file}", delimiter=',', quotechar='"', low_memory=False, usecols=req_cols, dtype=dtypes)
+
+def summary_stats(df, print_dtypes=True):
+    print("Shape of DataFrame: ", df.shape)
+    print("\nColumns in DataFrame: ", df.columns.tolist())
+    
+    if print_dtypes:
+        print("\nData types of columns:\n", df.dtypes)
+    
+    subset_columns = ['follower_id', 'id', 'marker_id']  # Add 'marker_id' to the list
+    subset = [col for col in subset_columns if col in df.columns]
+    
+    for col in subset:
+        print(f"\nNumber of unique values in '{col}': ", df[col].nunique())
+        duplicates = df[col].duplicated().sum()
+        print(f"\nNumber of duplicate values in '{col}': ", duplicates)
+    
+    print("\nNumber of missing values in each column:\n", df.isnull().sum())
+
+def compare_column_values(df1, df2, column):
+    missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
+    missing_in_df2 = df2.loc[~df2[column].isin(df1[column]), column]
+    
+    print(f"There are {missing_in_df1.nunique()} unique values in df1 that don't exist in df2.")
+    print(f"There are {missing_in_df2.nunique()} unique values in df2 that don't exist in df1.")
+
+def get_discrepancies(df1, df2, column):
+    missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
+    missing_in_df2 = df2.loc[~df2[column].isin(df1[column]), column]
+    
+    return missing_in_df1, missing_in_df2
+
+
+
+def filter_followers(df, follower_id_column, min_brands):
+    """
+    Filters a DataFrame to only include followers who are following at least a certain number of brands.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame to be filtered.
+    follower_id_column (str): The name of the column in df that contains the follower IDs.
+    min_brands (int): The minimum number of brands a follower must be following to be included in the filtered DataFrame.
+
+    Returns:
+    pandas.DataFrame: The filtered DataFrame.
+    """
+    # Count the number of brands each follower is following
+    follower_brand_counts = df.groupby(follower_id_column).size()
+
+    # Get the follower_ids of the followers who are following at least 'min_brands' brands
+    valid_followers = follower_brand_counts[follower_brand_counts >= min_brands].index
+
+    # Calculate the number and percentage of followers who follow less than 'min_brands' brands
+    invalid_followers_count = len(follower_brand_counts) - len(valid_followers)
+    invalid_followers_percentage = (invalid_followers_count / len(follower_brand_counts)) * 100
+
+    print(f"{invalid_followers_count} followers follow less than {min_brands} brands ({invalid_followers_percentage:.2f}% of the total followers).")
+
+    # Filter the DataFrame to only include the valid followers
+    filtered_df = df[df[follower_id_column].isin(valid_followers)]
+
+    # Calculate the number and percentage of followers left after the filtering
+    valid_followers_count = len(filtered_df[follower_id_column].unique())
+    valid_followers_percentage = (valid_followers_count / len(follower_brand_counts)) * 100
+
+    print(f"After removing these followers, {valid_followers_count} followers are left ({valid_followers_percentage:.2f}% of the followers in the inputted df).")
+    
+    return filtered_df
+
+def streamline_ids(target_df, target_column, source_df, source_column):
+    initial_rows = len(target_df)
+    filtered_df = target_df[target_df[target_column].isin(source_df[source_column])]
+    final_rows = len(filtered_df)
+    
+    # Sanity check
+    unique_target = filtered_df[target_column].nunique()
+    unique_source = source_df[source_column].nunique()
+    if unique_target == unique_source:
+        print("Sanity check passed: The number of unique values in the source and target columns are identical.")
+    else:
+        print(f"Sanity check failed: The number of unique values in the source column ({unique_source}) and target column ({unique_target}) are not identical.")
+    
+    print(f"Removed {initial_rows - final_rows} rows.")
+    print(f"{final_rows} rows are left.")
+    return filtered_df
