@@ -161,3 +161,15 @@ def filter_by_tweets_and_followers(df, min_followers, min_tweets):
     print(f"{final_rows} rows are left.")
 
     return df_filtered
+
+
+def print_lines(path, file, start_line, end_line):
+    """
+    Print lines from a file within a given range.
+    """
+    with open(f"{path}/{file}", 'r') as f:
+        print(f"Printing lines from file: {file}")
+        for i in range(end_line):
+            line = f.readline()
+            if i >= start_line:
+                print(line)
