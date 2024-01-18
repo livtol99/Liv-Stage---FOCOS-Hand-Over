@@ -99,19 +99,65 @@ def filter_followers(df, follower_id_column, min_brands):
     
     return filtered_df
 
-def streamline_ids(target_df, target_column, source_df, source_column):
-    initial_rows = len(target_df)
-    filtered_df = target_df[target_df[target_column].isin(source_df[source_column])]
-    final_rows = len(filtered_df)
+
+def streamline_IDs(source, df_tofilter, column):
+    """
+    Filters a DataFrame based on the presence of values in a specific column of another DataFrame.
     
-    # Sanity check
-    unique_target = filtered_df[target_column].nunique()
-    unique_source = source_df[source_column].nunique()
-    if unique_target == unique_source:
-        print("Sanity check passed: The number of unique values in the source and target columns are identical.")
-    else:
-        print(f"Sanity check failed: The number of unique values in the source column ({unique_source}) and target column ({unique_target}) are not identical.")
+    Parameters:
+    source (DataFrame): The DataFrame to use as the source of values.
+    df_tofilter (DataFrame): The DataFrame to filter.
+    column (str): The column name to use for filtering.
     
+    Returns:
+    DataFrame: The filtered DataFrame.
+    
+    Prints:
+    The number of unique values in the specified column of the source DataFrame and the filtered DataFrame.
+    The number of rows removed and the number of rows left in the filtered DataFrame.
+    """
+    initial_rows = len(df_tofilter)
+    
+    # Filter df_tofilter to only include rows where column value is in source
+    df_tofilter_filtered = df_tofilter[df_tofilter[column].isin(source[column])]
+    
+    final_rows = len(df_tofilter_filtered)
+
+    # Print the number of unique values in each DataFrame
+    print(f"Number of unique {column} in source: {source[column].nunique()}")
+    print(f"Number of unique {column} in df_tofilter after filtering: {df_tofilter_filtered[column].nunique()}")
+    
+    # Print the number of rows removed and left
     print(f"Removed {initial_rows - final_rows} rows.")
     print(f"{final_rows} rows are left.")
-    return filtered_df
+
+    return df_tofilter_filtered
+
+
+def filter_by_tweets_and_followers(df, min_followers, min_tweets):
+    """
+    Filters a DataFrame to only include rows where a follower has a certain minimum number of followers and tweets.
+    
+    Parameters:
+    df (DataFrame): The DataFrame to filter.
+    min_followers (int): The minimum number of followers a follower must have.
+    min_tweets (int): The minimum number of tweets a follower must have.
+    
+    Returns:
+    DataFrame: The filtered DataFrame.
+    
+    Prints:
+    The number of rows removed and the number of rows left in the DataFrame.
+    """
+    initial_rows = len(df)
+    
+    # Filter df to only include rows where a follower has min_followers or more followers and min_tweets or more tweets
+    df_filtered = df[(df['followers'] >= min_followers) & (df['tweets'] >= min_tweets)]
+    
+    final_rows = len(df_filtered)
+
+    # Print the number of rows removed and left
+    print(f"Removed {initial_rows - final_rows} rows.")
+    print(f"{final_rows} rows are left.")
+
+    return df_filtered
