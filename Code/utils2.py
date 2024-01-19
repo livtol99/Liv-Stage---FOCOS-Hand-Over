@@ -4,6 +4,7 @@ from langdetect import detect, DetectorFactory, LangDetectException
 import emoji
 from collections import defaultdict
 import csv
+import re
 
 
 def print_lines(path, file, start_line, end_line):
@@ -173,3 +174,58 @@ def print_lines(path, file, start_line, end_line):
             line = f.readline()
             if i >= start_line:
                 print(line)
+
+
+
+
+def remove_emoji(string):
+    return emoji.demojize(string, delimiters=("<EMOJI:", ">"))
+
+def remove_emoji_descriptions(string):
+    return re.sub(r'<EMOJI:.*?>', '', string)
+
+def convert_to_regular_script(string):
+    """
+    Convert a string to regular script.
+
+    Parameters:
+    string (str): The string to process.
+
+    Returns:
+    str: The string in regular script.
+    """
+    return unidecode(string)
+
+def process_description(df, column):
+    """
+    Process a column of a DataFrame.
+    Removes emojis, converts to regular script.
+
+    Parameters:
+    df (DataFrame): The DataFrame to process.
+    column (str): The name of the column to process.
+
+    Returns:
+    DataFrame: The processed DataFrame.
+    """
+    df.loc[:, column + '_cleantext'] = df[column].apply(lambda bio: remove_emoji(bio) if pd.notnull(bio) else '')
+    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: convert_to_regular_script(bio) if pd.notnull(bio) else '')
+    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: remove_emoji_descriptions(bio) if pd.notnull(bio) else '')
+    return df
+
+def detect_language(bio):
+    """
+    Detect the language of a string.
+
+    Parameters:
+    bio (str): The string to process.
+
+    Returns:
+    str: The language of the string, or 'unknown' if the language could not be detected.
+    """
+    DetectorFactory.seed = 3
+    try:
+        return detect(bio)
+    except LangDetectException:
+        return 'unknown'
+
