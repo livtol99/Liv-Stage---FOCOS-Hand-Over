@@ -5,6 +5,8 @@ import emoji
 from collections import defaultdict
 import csv
 import re
+from joblib import Parallel, delayed
+
 
 
 def print_lines(path, file, start_line, end_line):
@@ -125,12 +127,12 @@ def streamline_IDs(source, df_tofilter, column):
     final_rows = len(df_tofilter_filtered)
 
     # Print the number of unique values in each DataFrame
-    print(f"Number of unique {column} in source: {source[column].nunique()}")
-    print(f"Number of unique {column} in df_tofilter after filtering: {df_tofilter_filtered[column].nunique()}")
+    print(f"Number of unique {column} in source DataFrame: {source[column].nunique()}")
+    print(f"Number of unique {column} in filtered DataFrame after filtering: {df_tofilter_filtered[column].nunique()}")
     
     # Print the number of rows removed and left
-    print(f"Removed {initial_rows - final_rows} rows.")
-    print(f"{final_rows} rows are left.")
+    print(f"Removed {initial_rows - final_rows} rows from the DataFrame to be filtered.")
+    print(f"{final_rows} rows are left in the filtered DataFrame.")
 
     return df_tofilter_filtered
 
@@ -213,6 +215,8 @@ def process_description(df, column):
     df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: remove_emoji_descriptions(bio) if pd.notnull(bio) else '')
     return df
 
+
+
 def detect_language(bio):
     """
     Detect the language of a string.
@@ -221,11 +225,44 @@ def detect_language(bio):
     bio (str): The string to process.
 
     Returns:
-    str: The language of the string, or 'unknown' if the language could not be detected.
+    str: The language of the string, or 'unknown' if the language could not be detected or if the input is not a string.
     """
-    DetectorFactory.seed = 3
+    if pd.isna(bio) or bio.strip() == '':
+        return 'unknown'
     try:
         return detect(bio)
     except LangDetectException:
         return 'unknown'
 
+
+def add_and_detect_language(df, column, seed=3, n_jobs=-1):
+    """
+    Add a language column to a DataFrame and detect the language for each row.
+
+    Parameters:
+    df (DataFrame): The DataFrame to process.
+    column (str): The column to detect language from.
+    seed (int): The seed for the language detection algorithm.
+    n_jobs (int): The number of CPU cores to use. -1 means using all processors.
+
+    Returns:
+    DataFrame: The DataFrame with the added language column.
+    """
+    DetectorFactory.seed = seed
+    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
+    return df
+
+def split_by_language(df, language):
+    """
+    Split a DataFrame by language.
+
+    Parameters:
+    df (DataFrame): The DataFrame to split.
+    language (str): The language to split by.
+
+    Returns:
+    DataFrame, DataFrame: The DataFrame with the specified language, and the DataFrame with all other languages.
+    """
+    df_language = df[df['language'] == language]
+    df_other = df[df['language'] != language]
+    return df_language, df_other
