@@ -1,11 +1,17 @@
 import pandas as pd
 from unidecode import unidecode
-from langdetect import detect, DetectorFactory, LangDetectException
+import unicodedata
+from langdetect import detect,detect_langs,  DetectorFactory, LangDetectException
 import emoji
 from collections import defaultdict
 import csv
 import re
 from joblib import Parallel, delayed
+import ftfy
+import re
+
+import regex
+
 
 
 
@@ -179,29 +185,21 @@ def print_lines(path, file, start_line, end_line):
 
 
 
-
 def remove_emoji(string):
     return emoji.demojize(string, delimiters=("<EMOJI:", ">"))
 
 def remove_emoji_descriptions(string):
     return re.sub(r'<EMOJI:.*?>', '', string)
 
-def convert_to_regular_script(string):
-    """
-    Convert a string to regular script.
 
-    Parameters:
-    string (str): The string to process.
 
-    Returns:
-    str: The string in regular script.
-    """
-    return unidecode(string)
+
+
 
 def process_description(df, column):
     """
     Process a column of a DataFrame.
-    Removes emojis, converts to regular script.
+    Removes emojis, special characters and unusual fonts, fixes text issues while preserving accents.
 
     Parameters:
     df (DataFrame): The DataFrame to process.
@@ -211,18 +209,20 @@ def process_description(df, column):
     DataFrame: The processed DataFrame.
     """
     df.loc[:, column + '_cleantext'] = df[column].apply(lambda bio: remove_emoji(bio) if pd.notnull(bio) else '')
-    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: convert_to_regular_script(bio) if pd.notnull(bio) else '')
+    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: unicodedata.normalize('NFKC', bio) if pd.notnull(bio) else '')
     df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: remove_emoji_descriptions(bio) if pd.notnull(bio) else '')
+    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: regex.sub(r'[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}«»€]', '', bio) if pd.notnull(bio) else '')
+    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: ''.join(c for c in bio if c <= '\uFFFF') if pd.notnull(bio) else '')
     return df
 
 
-
-def detect_language(bio):
+def detect_language(bio, threshold=0.9):
     """
     Detect the language of a string.
 
     Parameters:
     bio (str): The string to process.
+    threshold (float): The minimum probability to accept a detected language.
 
     Returns:
     str: The language of the string, or 'unknown' if the language could not be detected or if the input is not a string.
@@ -230,18 +230,24 @@ def detect_language(bio):
     if pd.isna(bio) or bio.strip() == '':
         return 'unknown'
     try:
-        return detect(bio)
+        detected_languages = detect_langs(bio)
+        # The first language in the list is the most probable
+        most_probable_language = detected_languages[0]
+        if most_probable_language.prob > threshold:
+            return str(most_probable_language.lang)
+        else:
+            return 'unknown'
     except LangDetectException:
         return 'unknown'
 
-
-def add_and_detect_language(df, column, seed=3, n_jobs=-1):
+def add_and_detect_language(df, column, threshold=0.9, seed=3, n_jobs=-1):
     """
     Add a language column to a DataFrame and detect the language for each row.
 
     Parameters:
     df (DataFrame): The DataFrame to process.
     column (str): The column to detect language from.
+    threshold (float): The minimum probability to accept a detected language.
     seed (int): The seed for the language detection algorithm.
     n_jobs (int): The number of CPU cores to use. -1 means using all processors.
 
@@ -249,7 +255,7 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     DataFrame: The DataFrame with the added language column.
     """
     DetectorFactory.seed = seed
-    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
+    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio, threshold) for bio in df[column])
     return df
 
 def split_by_language(df, language):
