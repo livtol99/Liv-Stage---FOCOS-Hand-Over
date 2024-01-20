@@ -26,6 +26,8 @@ matplotlib = "^3.8.2"
 joblib = "^1.3.2"
 ftfy = "^6.1.3"
 regex = "^2023.12.25"
+protobuf = "^4.25.2"
+gcld3 = "^3.0.13"
 
 
 [build-system]

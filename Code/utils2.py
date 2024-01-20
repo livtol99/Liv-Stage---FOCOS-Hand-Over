@@ -10,6 +10,8 @@ from joblib import Parallel, delayed
 import ftfy
 import re
 
+import gcld3
+from multiprocessing import Pool
 import regex
 
 
@@ -216,13 +218,12 @@ def process_description(df, column):
     return df
 
 
-def detect_language(bio, threshold=0.9):
+def detect_language(bio):
     """
     Detect the language of a string.
 
     Parameters:
     bio (str): The string to process.
-    threshold (float): The minimum probability to accept a detected language.
 
     Returns:
     str: The language of the string, or 'unknown' if the language could not be detected or if the input is not a string.
@@ -233,21 +234,17 @@ def detect_language(bio, threshold=0.9):
         detected_languages = detect_langs(bio)
         # The first language in the list is the most probable
         most_probable_language = detected_languages[0]
-        if most_probable_language.prob > threshold:
-            return str(most_probable_language.lang)
-        else:
-            return 'unknown'
+        return str(most_probable_language.lang)
     except LangDetectException:
         return 'unknown'
 
-def add_and_detect_language(df, column, threshold=0.9, seed=3, n_jobs=-1):
+def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     """
     Add a language column to a DataFrame and detect the language for each row.
 
     Parameters:
     df (DataFrame): The DataFrame to process.
     column (str): The column to detect language from.
-    threshold (float): The minimum probability to accept a detected language.
     seed (int): The seed for the language detection algorithm.
     n_jobs (int): The number of CPU cores to use. -1 means using all processors.
 
@@ -255,8 +252,25 @@ def add_and_detect_language(df, column, threshold=0.9, seed=3, n_jobs=-1):
     DataFrame: The DataFrame with the added language column.
     """
     DetectorFactory.seed = seed
-    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio, threshold) for bio in df[column])
+    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
     return df
+
+def get_language(text):
+    if pd.isnull(text):
+        return 'unknown'
+    identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=1000)
+    result = identifier.FindLanguage(text)
+    return result.language
+
+def detect_language_gcld3(df, column, n_jobs=-1):
+    if column not in df.columns:
+        return df
+
+    df['language'] = Parallel(n_jobs=n_jobs)(delayed(get_language)(text) for text in df[column])
+
+    return df
+
+
 
 def split_by_language(df, language):
     """
