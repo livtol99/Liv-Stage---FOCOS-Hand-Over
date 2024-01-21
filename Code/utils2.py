@@ -258,7 +258,7 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
 def get_language(text):
     if pd.isnull(text):
         return 'unknown'
-    identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=1000)
+    identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=200)
     result = identifier.FindLanguage(text)
     return result.language
 
