@@ -88,7 +88,7 @@ def filter_followers(df, follower_id_column, min_brands):
     pandas.DataFrame: The filtered DataFrame.
     """
     # Count the number of brands each follower is following
-    follower_brand_counts = df.groupby(follower_id_column).size()
+    follower_brand_counts = df.groupby(follower_id_column)['marker_id'].nunique()
 
     # Get the follower_ids of the followers who are following at least 'min_brands' brands
     valid_followers = follower_brand_counts[follower_brand_counts >= min_brands].index
@@ -196,8 +196,6 @@ def remove_emoji_descriptions(string):
 
 
 
-
-
 def process_description(df, column):
     """
     Process a column of a DataFrame.
@@ -210,11 +208,18 @@ def process_description(df, column):
     Returns:
     DataFrame: The processed DataFrame.
     """
-    df.loc[:, column + '_cleantext'] = df[column].apply(lambda bio: remove_emoji(bio) if pd.notnull(bio) else '')
-    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: unicodedata.normalize('NFKC', bio) if pd.notnull(bio) else '')
-    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: remove_emoji_descriptions(bio) if pd.notnull(bio) else '')
-    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: regex.sub(r'[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}«»€]', '', bio) if pd.notnull(bio) else '')
-    df.loc[:, column + '_cleantext'] = df[column + '_cleantext'].apply(lambda bio: ''.join(c for c in bio if c <= '\uFFFF') if pd.notnull(bio) else '')
+    def process_bio(bio):
+        if pd.notnull(bio):
+            bio = remove_emoji(bio)
+            bio = unicodedata.normalize('NFKC', bio)
+            bio = remove_emoji_descriptions(bio)
+            bio = regex.sub(r'[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}«»€]', '', bio)
+            bio = ''.join(c for c in bio if c <= '\uFFFF')
+        else:
+            bio = ''
+        return bio
+
+    df.loc[:, column + '_cleantext'] = df[column].apply(process_bio)
     return df
 
 
@@ -269,7 +274,6 @@ def detect_language_gcld3(df, column, n_jobs=-1):
     df['language'] = Parallel(n_jobs=n_jobs)(delayed(get_language)(text) for text in df[column])
 
     return df
-
 
 
 def split_by_language(df, language):
