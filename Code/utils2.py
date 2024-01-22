@@ -56,9 +56,12 @@ def summary_stats(df, print_dtypes=True):
     for col in subset:
         print(f"\nNumber of unique values in '{col}': ", df[col].nunique())
         duplicates = df[col].duplicated().sum()
-        print(f"\nNumber of duplicate values in '{col}': ", duplicates)
+        print(f"Number of duplicate values in '{col}': ", duplicates)
     
-    print("\nNumber of missing values in each column:\n", df.isnull().sum())
+    for col in df.columns:
+        print(f"Number of missing values in '{col}': ", df[col].isnull().sum())
+    
+    print("\nNumber of duplicate rows: ", df.duplicated().sum())
 
 def compare_column_values(df1, df2, column):
     missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
