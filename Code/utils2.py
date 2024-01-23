@@ -58,8 +58,9 @@ def summary_stats(df, print_dtypes=True):
         duplicates = df[col].duplicated().sum()
         print(f"Number of duplicate values in '{col}': ", duplicates)
     
+    print("\nNumber of missing values in each column:")
     for col in df.columns:
-        print(f"Number of missing values in '{col}': ", df[col].isnull().sum())
+        print(f"'{col}': ", df[col].isnull().sum())
     
     print("\nNumber of duplicate rows: ", df.duplicated().sum())
 
@@ -211,6 +212,7 @@ def process_description(df, column):
     Returns:
     DataFrame: The processed DataFrame.
     """
+    df = df.copy()
     def process_bio(bio):
         if pd.notnull(bio):
             bio = remove_emoji(bio)
