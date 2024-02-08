@@ -229,7 +229,7 @@ def process_description(df, column):
 
 def detect_language(bio):
     """
-    Detect the language of a string.
+    Detect the language of a string using the langdetect library.
 
     Parameters:
     bio (str): The string to process.
@@ -248,6 +248,7 @@ def detect_language(bio):
         return 'unknown'
 
 def add_and_detect_language(df, column, seed=3, n_jobs=-1):
+
     """
     Add a language column to a DataFrame and detect the language for each row.
 
@@ -294,3 +295,27 @@ def split_by_language(df, language):
     df_language = df[df['language'] == language]
     df_other = df[df['language'] != language]
     return df_language, df_other
+
+
+def calculate_percentage(result, total_rows):
+    percentage = (result / total_rows) * 100
+    percentage = round(percentage, 1)  # round to two decimal places
+    return str(percentage) + '%'  # add '%' sign
+
+
+
+def location_bio_stats(df):
+    total_rows = len(df)
+    
+    # Define a helper function to calculate and print a statistic
+    def print_stat(name, count):
+        percentage = calculate_percentage(count, total_rows)
+        print(f'{name}: {count} ({percentage})')
+    
+    # Calculate and print each statistic
+    print_stat('Unique locations', df['location'].nunique())
+    print_stat('Users with location data', df['location'].notna().sum())
+    print_stat('Users without location data', df['location'].isna().sum())
+    print_stat('Users with bios', df['description_cleantext'].notna().sum())
+    print_stat('Users without bios', df['description_cleantext'].isna().sum())
+    print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])

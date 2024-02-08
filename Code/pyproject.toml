@@ -33,6 +33,7 @@ adjusttext = "^1.0.4"
 delayedsparse = "^0.2.4"
 prince = "^0.13.0"
 python-louvain = "^0.16"
+locationtagger = "^0.0.1"
 
 
 [build-system]
