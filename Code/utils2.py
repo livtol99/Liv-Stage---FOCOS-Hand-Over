@@ -65,18 +65,17 @@ def summary_stats(df, print_dtypes=True):
     print("\nNumber of duplicate rows: ", df.duplicated().sum())
 
 def compare_column_values(df1, df2, column):
+    """
+    Compare the unique values of a specific column between two pandas DataFrames.
+
+    Parameters:
+    column (str): The column name to compare.
+    """
     missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
     missing_in_df2 = df2.loc[~df2[column].isin(df1[column]), column]
     
     print(f"There are {missing_in_df1.nunique()} unique values in df1 that don't exist in df2.")
     print(f"There are {missing_in_df2.nunique()} unique values in df2 that don't exist in df1.")
-
-def get_discrepancies(df1, df2, column):
-    missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
-    missing_in_df2 = df2.loc[~df2[column].isin(df1[column]), column]
-    
-    return missing_in_df1, missing_in_df2
-
 
 
 def filter_followers(df, follower_id_column, min_brands):
