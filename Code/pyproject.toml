@@ -34,6 +34,8 @@ prince = "^0.13.0"
 python-louvain = "^0.16"
 locationtagger = "^0.0.1"
 geonamescache = "^2.0.0"
+matplotlib-venn = "^0.11.10"
+upsetplot = "^0.9.0"
 
 
 [build-system]
