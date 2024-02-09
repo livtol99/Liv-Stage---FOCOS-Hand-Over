@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 import ftfy
 import re
 
-import gcld3
+#import gcld3
 from multiprocessing import Pool
 import regex
 
@@ -265,20 +265,20 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
     return df
 
-def get_language(text):
-    if pd.isnull(text):
-        return 'unknown'
-    identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=200)
-    result = identifier.FindLanguage(text)
-    return result.language
+# def get_language(text):
+#     if pd.isnull(text):
+#         return 'unknown'
+#     identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=200)
+#     result = identifier.FindLanguage(text)
+#     return result.language
 
-def detect_language_gcld3(df, column, n_jobs=-1):
-    if column not in df.columns:
-        return df
+# def detect_language_gcld3(df, column, n_jobs=-1):
+#     if column not in df.columns:
+#         return df
 
-    df['language'] = Parallel(n_jobs=n_jobs)(delayed(get_language)(text) for text in df[column])
+#     df['language'] = Parallel(n_jobs=n_jobs)(delayed(get_language)(text) for text in df[column])
 
-    return df
+#     return df
 
 
 def split_by_language(df, language):
