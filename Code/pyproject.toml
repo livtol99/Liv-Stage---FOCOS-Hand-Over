@@ -36,6 +36,7 @@ locationtagger = "^0.0.1"
 geonamescache = "^2.0.0"
 matplotlib-venn = "^0.11.10"
 upsetplot = "^0.9.0"
+powerlaw = "^1.5"
 
 
 [build-system]
