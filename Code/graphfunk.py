@@ -18,7 +18,7 @@ def plot_type(df, column_coordinates, type_to_plot, color, dimension):
     column_coordinates_type_sorted = column_coordinates_type.sort_values(by=dimension)
 
     # Create a scatter plot
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(15, 10))
 
     # Assign each unique twitter_name a unique y-value based on sorted order
     y_values = np.linspace(0, 1, len(column_coordinates_type_sorted))
