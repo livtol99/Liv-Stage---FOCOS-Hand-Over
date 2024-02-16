@@ -319,3 +319,21 @@ def location_bio_stats(df):
     print_stat('Users with bios', df['description_cleantext'].notna().sum())
     print_stat('Users without bios', df['description_cleantext'].isna().sum())
     print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])
+
+def min_french_followers(df, min_followers):
+    # Filter rows with 'french_followers' less than min_followers
+    filtered_df = df[df['french_followers'] >= min_followers]
+
+    # Find the rows that were removed
+    removed_rows = df.loc[~df.index.isin(filtered_df.index)]
+
+    # Get the 'twitter_name' and 'french_followers' columns of the removed rows
+    removed_info = removed_rows[['twitter_name', 'followers','french_followers', 'type']]
+
+    # Remove duplicate 'twitter_name' rows
+    removed_info = removed_info.drop_duplicates(subset='twitter_name')
+
+    # Print the total number of brands removed
+    print(f"Total brands removed: {removed_info['twitter_name'].nunique()}")
+
+    return filtered_df, removed_info

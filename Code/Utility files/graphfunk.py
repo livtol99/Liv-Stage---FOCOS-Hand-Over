@@ -9,7 +9,7 @@ import networkx as nx
 
 def plot_type(df, column_coordinates, type_to_plot, color, dimension):
     # Filter for the specified type
-    type_df = df[df['type'] == type_to_plot]
+    type_df = df[df['type2'] == type_to_plot]
 
     # Use only specified type twitter_names in column_coordinates
     column_coordinates_type = column_coordinates[column_coordinates.index.isin(type_df['twitter_name'])]
