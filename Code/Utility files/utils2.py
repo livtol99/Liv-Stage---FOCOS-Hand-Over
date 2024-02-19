@@ -337,3 +337,22 @@ def min_french_followers(df, min_followers):
     print(f"Total brands removed: {removed_info['twitter_name'].nunique()}")
 
     return filtered_df, removed_info
+
+
+def check_types(df, group_column, count_column):
+    # Check if the group column exists in the DataFrame
+    if group_column in df.columns:
+        # Calculate the number of unique values in the group column
+        unique_values = df[group_column].nunique()
+        print(f"Number of unique values in '{group_column}': {unique_values}\n")
+
+        # Group by the group column and calculate the min and max of the count column
+        group = df.groupby(group_column)[count_column].agg(['min', 'max'])
+
+        # Print the min and max for each group
+        for index, row in group.iterrows():
+            print(f"{group_column} = {index}:\n"
+                  f"  Min '{count_column}': {row['min']}\n"
+                  f"  Max '{count_column}': {row['max']}\n")
+    else:
+        print(f"'{group_column}' does not exist in the DataFrame.")
