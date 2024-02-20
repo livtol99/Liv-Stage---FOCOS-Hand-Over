@@ -82,4 +82,29 @@ def location_bio_stats(df):
     print_stat('Users without bios', df['description_cleantext'].isna().sum())
     print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])
 
+
+
+def calculate_language_percentages(df, column):
+    total_rows = df.shape[0]
+
+    french_rows = df[df[column] == 'fr'].shape[0]
+    english_rows = df[df[column] == 'en'].shape[0]
+    unknown_rows = df[df[column] == 'unknown'].shape[0]
+    NA_rows = df[df[column] == 'NA'].shape[0]
+    other_rows = total_rows - french_rows - english_rows - unknown_rows
+
+    french_percent = (french_rows / total_rows) * 100
+    english_percent = (english_rows / total_rows) * 100
+    unknown_percent = (unknown_rows / total_rows) * 100
+    other_percent = 100 - french_percent - english_percent - unknown_percent
+
+    print("French: ", french_rows, "(", french_percent, "%)")
+    print("English: ", english_rows, "(", english_percent, "%)")
+    print("Unknown: ", unknown_rows, "(", unknown_percent, "%)")
+    print("Other: ", other_rows, "(", other_percent, "%)")
+
+    nan_rows = df['description_cleantext'].isna().sum()
+    nan_percent = (nan_rows / total_rows) * 100
+    print("NaN in description_cleantext: ", nan_rows, "(", nan_percent, "%)")
+
     

@@ -227,6 +227,7 @@ def process_description(df, column):
     return df
 
 
+
 def detect_language(bio):
     """
     Detect the language of a string using the langdetect library.
@@ -302,7 +303,13 @@ def calculate_percentage(result, total_rows):
     percentage = round(percentage, 1)  # round to two decimal places
     return str(percentage) + '%'  # add '%' sign
 
-
+# Define a function to assign country
+def assign_country(location, city_names):
+    if isinstance(location, str):
+        for word in location.split():
+            if word in city_names:
+                return 'France'
+    return 'Other'
 
 def location_bio_stats(df):
     total_rows = len(df)
