@@ -13,7 +13,7 @@ from networkx.algorithms import bipartite
 from netgraph import Graph
 
 
-class CA_pipeline:
+class PipelineCorAnalysis:
     def __init__(self, data_subset, data_subset_name):
         if not isinstance(data_subset, pd.DataFrame):
             raise ValueError("data_subset must be a pandas DataFrame")
@@ -32,20 +32,25 @@ class CA_pipeline:
 
     # Graph checks methods
     def create_bipartite_graph(self):
-        # Create a new bipartite graph
-        B = nx.DiGraph()  # initialize a new directed graph
+        try:
+            # Create a new bipartite graph
+            B = nx.DiGraph()  # initialize a new directed graph
 
-        # Add nodes with the node attribute "bipartite"
-        B.add_nodes_from(self.data_subset['follower_id'].unique(), bipartite=0)  # adding a node for each unique follower. Bipartite = 0 assigns followers to the first set in the graph.  Set 1 in the bipartite graph
-        B.add_nodes_from(self.data_subset['twitter_name'].unique(), bipartite=1)  # adding a node for each unique marker. Set 2 in the bipartite graph
+            # Add nodes with the node attribute "bipartite"
+            B.add_nodes_from(self.data_subset['follower_id'].unique(), bipartite=0)  # adding a node for each unique follower. Bipartite = 0 assigns followers to the first set in the graph.  Set 1 in the bipartite graph
+            B.add_nodes_from(self.data_subset['twitter_name'].unique(), bipartite=1)  # adding a node for each unique marker. Set 2 in the bipartite graph
 
-        # Add edges
-        B.add_edges_from(list(zip(self.data_subset['follower_id'], self.data_subset['twitter_name'])))  # edges are directed from the first to the second element. So direction is; follower --> Marker
+            # Add edges
+            B.add_edges_from(list(zip(self.data_subset['follower_id'], self.data_subset['twitter_name'])))  # edges are directed from the first to the second element. So direction is; follower --> Marker
 
-        self.B = B  # store the graph in an instance variable for later use
-        
-        #call the sanity check method here to avoid AttributeErrors 
-        self.sanity_checks()
+            self.B = B  # store the graph in an instance variable for later use
+            
+            #call the sanity check method here to avoid AttributeErrors 
+            # self.sanity_checks()
+            # self.connectedness()
+            # self.plot_degree_cdf()
+        except Exception as e:
+            print(f"Error occurred while creating bipartite graph: {str(e)}")
     
     def sanity_checks(self):
         if not hasattr(self, 'B'):
@@ -173,6 +178,8 @@ class CA_pipeline:
         plt.show()
     
     def calculate_communities(self):
+        if not hasattr(self, 'G2_markers'):
+            self.marker_projection()
         # Compute the best partition using the Louvain method
         partition = community_louvain.best_partition(self.G2_markers) #result is a dict where key = node and value = community
 
@@ -203,36 +210,42 @@ class CA_pipeline:
 
     
     def perform_ca_analysis(self, save_path, n_components=100, n_iter=100):
-        # Initialize a CA object
-        ca = prince.CA(
-            n_components=n_components,  # Number of components to keep
-            n_iter=n_iter,  # Number of iterations for the power method
-            copy=True,  # Whether to overwrite the data matrix
-            check_input=True,  # Whether to check the input for NaNs and Infs
-            engine='sklearn',  # Whether to perform computations in C or Python
-            random_state=42  # Random seed for reproducibility
-        )
+        try:
+            # Initialize a CA object
+            ca = prince.CA(
+                n_components=n_components,  # Number of components to keep
+                n_iter=n_iter,  # Number of iterations for the power method
+                copy=True,  # Whether to overwrite the data matrix
+                check_input=True,  # Whether to check the input for NaNs and Infs
+                engine='sklearn',  # Whether to perform computations in C or Python
+                random_state=42  # Random seed for reproducibility
+            )
 
-        # Fit the CA model on the contingency table
-        self.ca = ca.fit(self.contingency_table)
+            # Fit the CA model on the contingency table
+            ca.fit(self.contingency_table)
+            self.ca = ca
 
-        # Get the coordinates of the rows (followers) and columns (brands) 
-        row_coordinates = ca.row_coordinates(self.contingency_table)
-        column_coordinates = ca.column_coordinates(self.contingency_table)
+            # Get the coordinates of the rows (followers) and columns (brands) 
+            row_coordinates = ca.row_coordinates(self.contingency_table)
+            column_coordinates = ca.column_coordinates(self.contingency_table)
 
-        # Create a new directory with the name of the edgelist if it doesn't exist
-        new_dir_path = os.path.join(save_path, f"{self.edgelist_name}_coords")
-        if not os.path.exists(new_dir_path):
-            os.makedirs(new_dir_path)
+            # Create a new directory with the name of the edgelist if it doesn't exist
+            new_dir_path = os.path.join(save_path, f"{self.edgelist_name}_coords")
+            if not os.path.exists(new_dir_path):
+                os.makedirs(new_dir_path)
 
-        # Save the row and column coordinates to CSV files in the new directory
-        # If a file already exists, add a unique suffix to the filename
-        row_file_path = os.path.join(new_dir_path, f'{self.edgelist_name}_row_coordinates.csv')
-        column_file_path = os.path.join(new_dir_path, f'{self.edgelist_name}_column_coordinates.csv')
-        row_file_path = self.get_unique_filepath(row_file_path)
-        column_file_path = self.get_unique_filepath(column_file_path)
-        row_coordinates.iloc[:, :4].to_csv(row_file_path)
-        column_coordinates.iloc[:, :4].to_csv(column_file_path)
+            # Save the row and column coordinates to CSV files in the new directory
+            # If a file already exists, add a unique suffix to the filename
+            row_file_path = os.path.join(new_dir_path, f'{self.edgelist_name}_row_coordinates.csv')
+            column_file_path = os.path.join(new_dir_path, f'{self.edgelist_name}_column_coordinates.csv')
+            row_file_path = self.get_unique_filepath(row_file_path)
+            column_file_path = self.get_unique_filepath(column_file_path)
+            row_coordinates.iloc[:, :4].to_csv(row_file_path)
+            column_coordinates.iloc[:, :4].to_csv(column_file_path)
+
+        except Exception as e:
+            print(f"Error occurred while performing CA analysis: {str(e)}")
+ 
 
     def get_unique_filepath(self, filepath):
         # If the file doesn't exist, return the original filepath
@@ -248,29 +261,18 @@ class CA_pipeline:
 
         return filepath
 
-    def plot_variance_per_dimension(self):
-        # Assuming 'ca' is your prince.CA object
-        percentage_of_variance = self.ca.explained_inertia_
-
-        # Create a range of numbers for x axis
-        dimensions = range(1, len(percentage_of_variance) + 1)
-
-        # Create the plot
-        plt.figure(figsize=(10, 7))
-        plt.bar(dimensions, percentage_of_variance)
-        plt.xlabel('Dimensions')
-        plt.ylabel('Percentage of Variance')
-        plt.title('Percentage of Total Variance per Dimension')
-        plt.show()
-
 
     def perform_ca_pipeline(self, save_path):
+        print("Creating contingency table...")
         self.create_contingency_table()
+        print("Performing CA analysis. Might take some time...")
         self.perform_ca_analysis(save_path, n_components=100, n_iter=100)
-        self.plot_variance_per_dimension()
 
     # Run all
-    def run_all(self):
+    def run_all(self, save_path):
+        print("Starting graph checks...")
         self.perform_graph_checks()
-        self.perform_ca_pipeline()
+        print("Graph checks complete. Starting CA fitting pipeline...")
+        self.perform_ca_pipeline(save_path)
+        print("CA pipeline complete.")
 
