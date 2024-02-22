@@ -363,3 +363,8 @@ def check_types(df, group_column, count_column):
                   f"  Max '{count_column}': {row['max']}\n")
     else:
         print(f"'{group_column}' does not exist in the DataFrame.")
+
+
+def add_label(df_to_change, df_with_labels, label_column):
+    changed_df = df_to_change.merge(df_with_labels[['twitter_name', label_column]], on='twitter_name', how='left')
+    return changed_df

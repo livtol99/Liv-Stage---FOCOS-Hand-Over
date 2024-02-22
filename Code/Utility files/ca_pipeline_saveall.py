@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import defaultdict
-
+import io
 import community as community_louvain
 import matplotlib.patches as mpatches
 import networkx as nx
@@ -13,7 +13,7 @@ from networkx.algorithms import bipartite
 from netgraph import Graph
 
 
-class PipelineCorAnalysis:
+class PipelineCorAnSave:
     def __init__(self, data_subset, data_subset_name):
         if not isinstance(data_subset, pd.DataFrame):
             raise ValueError("data_subset must be a pandas DataFrame")
@@ -59,24 +59,38 @@ class PipelineCorAnalysis:
         num_edges = self.B.number_of_edges()
         num_rows = len(self.data_subset)
 
-        print("Number of nodes:", num_nodes)
-        if num_edges == num_rows:
-            print("Edge number is sane - matches the number of rows in the inputted edgelist")
-
         B_undirected = self.B.to_undirected()
-        print("Is the graph connected?", nx.is_connected(B_undirected))
+        is_connected = nx.is_connected(B_undirected)
+
+        return {
+            'Number of nodes': num_nodes,
+            'Edge number matches number of rows': num_edges == num_rows,
+            'Is the graph connected': is_connected
+        }
 
     def connectedness(self):
         # Calculate weakly connected components
         connected_components = list(nx.weakly_connected_components(self.B))
 
-        # Print the number of connected components
-        print("Number of connected components:", len(connected_components))
+        # Get the number of connected components
+        num_connected_components = len(connected_components)
 
-        # Print the size of the largest connected component
-        print("Size of largest connected component:", max(len(c) for c in connected_components))
+        # Get the size of the largest connected component
+        size_largest_connected_component = max(len(c) for c in connected_components)
+
+        return {
+            'Number of connected components': num_connected_components,
+            'Size of largest connected component': size_largest_connected_component
+        }
     
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     def plot_degree_cdf(self):
+        import io
+        import matplotlib.pyplot as plt
+        import pickle
+
         followers = [n for n, d in self.B.nodes(data=True) if d['bipartite']==0]
         markers = [n for n, d in self.B.nodes(data=True) if d['bipartite']==1]
 
@@ -92,11 +106,11 @@ class PipelineCorAnalysis:
         ccdf = 1 - cum_counts
 
         # Plot the CCDF on a log-log scale
+        fig1 = plt.figure()
         plt.loglog(bin_edges[:-1], ccdf, marker='.')
         plt.xlabel('Out-Degree')
         plt.ylabel('CCDF')
         plt.title('CCDF of Out-Degrees on a log-log scale')
-        plt.show()
 
         # Calculate the complementary cumulative distribution function (CCDF)for in_degrees 
         counts, bin_edges = np.histogram(degrees_in, bins=range(1, max(degrees_in) + 1), density=True)
@@ -104,11 +118,22 @@ class PipelineCorAnalysis:
         ccdf = 1 - cum_counts
 
         # Plot the CCDF on a log-log scale
+        fig2 = plt.figure()
         plt.loglog(bin_edges[:-1], ccdf, marker='.', color='green')
         plt.xlabel('In-Degree')
         plt.ylabel('CCDF')
         plt.title('CCDF of In-Degrees on a log-log scale')
-        plt.show()
+
+        # Convert figures to bytes
+        buf1 = io.BytesIO()
+        fig1.savefig(buf1, format='png')
+        buf1.seek(0)
+
+        buf2 = io.BytesIO()
+        fig2.savefig(buf2, format='png')
+        buf2.seek(0)
+
+        return buf1, buf2
     
     def marker_projection(self):
         if not hasattr(self, 'B'):
@@ -129,6 +154,7 @@ class PipelineCorAnalysis:
         self.G_markers = G_markers
         self.G2_markers = G2_markers
     
+
     def plot_w_marker_relations(self):
         if not hasattr(self, 'G2_markers'):
             self.marker_projection()
@@ -175,7 +201,12 @@ class PipelineCorAnalysis:
         # Remove axes
         plt.axis('off')
 
-        plt.show()
+        # Convert figure to bytes
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+
+        return buf
     
     def calculate_communities(self):
         if not hasattr(self, 'G2_markers'):
@@ -186,21 +217,32 @@ class PipelineCorAnalysis:
         # Get the number of unique communities
         num_communities = len(set(partition.values()))
 
-        print(f"Number of communities: {num_communities}")
-
         # Store the partition for later use
         self.partition = partition
+
+        return {
+            'Number of communities': num_communities,
+            'Partition': partition
+        }
     
     
-    # Main method to run most of the graph checks
+    # Main method to run all the graph checks
     def perform_graph_checks(self):
         self.create_bipartite_graph()
-        self.sanity_checks()
-        self.connectedness()
-        #self.plot_degree_cdf()
+        sanity_checks_output = self.sanity_checks()
+        connectedness_output = self.connectedness()
+        plot_degree_cdf_output = self.plot_degree_cdf()
         self.marker_projection()
-        #self.plot_w_marker_relations()
-        self.calculate_communities()
+        plot_w_marker_relations_output = self.plot_w_marker_relations()
+        calculate_communities_output = self.calculate_communities()
+
+        return {
+            'sanity_checks': sanity_checks_output,
+            'connectedness': connectedness_output,
+            'plot_degree_cdf': plot_degree_cdf_output,
+            'plot_w_marker_relations': plot_w_marker_relations_output,
+            'calculate_communities': calculate_communities_output
+        }
 
     
     # CA fitting methods
@@ -229,10 +271,6 @@ class PipelineCorAnalysis:
             row_coordinates = ca.row_coordinates(self.contingency_table)
             column_coordinates = ca.column_coordinates(self.contingency_table)
 
-            # If 'label' column exists in the original data, add it to the column coordinates
-            if 'label' in self.data_subset.columns:
-                column_coordinates = column_coordinates.merge(self.data_subset[['twitter_name', 'label']].drop_duplicates(), left_index=True, right_on='twitter_name')
-
             # Create a new directory with the name of the edgelist if it doesn't exist
             new_dir_path = os.path.join(save_path, f"{self.edgelist_name}_coords")
             if not os.path.exists(new_dir_path):
@@ -244,17 +282,14 @@ class PipelineCorAnalysis:
             column_file_path = os.path.join(new_dir_path, f'{self.edgelist_name}_column_coordinates.csv')
             row_file_path = self.get_unique_filepath(row_file_path)
             column_file_path = self.get_unique_filepath(column_file_path)
-
-            # Save only the first four dimensions and the 'twitter_name' and 'label' columns
             row_coordinates.iloc[:, :4].to_csv(row_file_path)
-            column_coordinates[['twitter_name', 'label'] + list(column_coordinates.columns[:4])].to_csv(column_file_path)
+            column_coordinates.iloc[:, :4].to_csv(column_file_path)
 
         except Exception as e:
             print(f"Error occurred while performing CA analysis: {str(e)}")
  
-    def plot_variance(self):
-        import matplotlib.pyplot as plt
 
+    def plot_variance(self):
         # Get the percentage of variance
         percentage_of_variance = self.ca.percentage_of_variance_
 
@@ -267,7 +302,13 @@ class PipelineCorAnalysis:
         plt.xlabel('Dimensions')
         plt.ylabel('Percentage of Variance')
         plt.title('Percentage of Total Variance per Dimension')
-        plt.show()
+
+        # Convert figure to bytes
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+
+        return buf
 
     def get_unique_filepath(self, filepath):
         import os
@@ -291,6 +332,29 @@ class PipelineCorAnalysis:
 
         return filepath
     
+    def save_outputs(self, outputs, filenames, formats, save_path):
+        # Create a new directory 'outs' if it doesn't exist
+        outs_dir_path = os.path.join(save_path, 'outs')
+        if not os.path.exists(outs_dir_path):
+            os.makedirs(outs_dir_path)
+
+        # Loop over the outputs, filenames, and formats
+        for output, filename, format in zip(outputs, filenames, formats):
+            # Save the output to a file in the 'outs' directory
+            # If a file already exists, add a unique suffix to the filename
+            output_file_path = os.path.join(outs_dir_path, filename)
+            output_file_path = self.get_unique_filepath(output_file_path)
+
+            if format == 'csv':
+                output.to_csv(output_file_path, index=False)
+            elif format == 'png':
+                output.savefig(output_file_path)
+            elif format == 'txt':
+                with open(output_file_path, 'w') as f:
+                    f.write(output)
+            else:
+                raise ValueError(f"Unsupported format: {format}")
+    
 
     def perform_ca_pipeline(self, save_path):
         print("Creating contingency table...")
@@ -298,14 +362,28 @@ class PipelineCorAnalysis:
         print("Performing CA analysis. Might take some time...")
         self.perform_ca_analysis(save_path, n_components=100, n_iter=100)
         print("Plotting variance...")
-        self.plot_variance()
+        plot_variance_output = self.plot_variance()
+
+        return {
+            'plot_variance': plot_variance_output
+        }
 
 
-    # Run all
     def run_all(self, save_path):
         print("Starting graph checks...")
-        self.perform_graph_checks()
+        graph_checks_outputs = self.perform_graph_checks()
         print("Graph checks complete. Starting CA fitting pipeline...")
-        self.perform_ca_pipeline(save_path)
-        print("CA pipeline complete.")
+        ca_pipeline_outputs = self.perform_ca_pipeline(save_path)
+        print("CA pipeline complete. Saving outputs...")
+
+        # Save the outputs
+        self.save_outputs(
+            [graph_checks_outputs['sanity_checks'], graph_checks_outputs['connectedness'], graph_checks_outputs['plot_degree_cdf'], graph_checks_outputs['plot_w_marker_relations'], graph_checks_outputs['calculate_communities'], ca_pipeline_outputs['plot_variance']],
+            ['sanity_checks.txt', 'connectedness.txt', 'plot_degree_cdf.png', 'plot_w_marker_relations.png', 'calculate_communities.json', 'plot_variance.png'],
+            ['txt', 'txt', 'png', 'png', 'json', 'png'],
+            save_path
+        )
+
+        print("All done!")
+
 
