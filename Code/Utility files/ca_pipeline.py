@@ -246,13 +246,37 @@ class PipelineCorAnalysis:
         except Exception as e:
             print(f"Error occurred while performing CA analysis: {str(e)}")
  
+    def plot_variance(self):
+        import matplotlib.pyplot as plt
+
+        # Get the percentage of variance
+        percentage_of_variance = self.ca.percentage_of_variance_
+
+        # Create a range of numbers for x axis
+        dimensions = range(1, len(percentage_of_variance) + 1)
+
+        # Create the plot
+        plt.figure(figsize=(10, 7))
+        plt.bar(dimensions, percentage_of_variance)
+        plt.xlabel('Dimensions')
+        plt.ylabel('Percentage of Variance')
+        plt.title('Percentage of Total Variance per Dimension')
+        plt.show()
 
     def get_unique_filepath(self, filepath):
+        import os
+
         # If the file doesn't exist, return the original filepath
         if not os.path.exists(filepath):
             return filepath
 
-        # If the file exists, add a unique suffix to the filename
+        # If the file exists, ask the user if they want to overwrite it
+        overwrite = input(f"{filepath} already exists. Do you want to overwrite it? (yes/no): ")
+
+        if overwrite.lower() == 'yes':
+            return filepath
+
+        # If the user doesn't want to overwrite, add a unique suffix to the filename
         base, ext = os.path.splitext(filepath)
         i = 1
         while os.path.exists(filepath):
@@ -267,6 +291,9 @@ class PipelineCorAnalysis:
         self.create_contingency_table()
         print("Performing CA analysis. Might take some time...")
         self.perform_ca_analysis(save_path, n_components=100, n_iter=100)
+        print("Plotting variance...")
+        self.plot_variance()
+
 
     # Run all
     def run_all(self, save_path):
