@@ -1,18 +1,20 @@
-import pandas as pd
-from unidecode import unidecode
-import unicodedata
-from langdetect import detect,detect_langs,  DetectorFactory, LangDetectException
-import emoji
+# Standard library imports
 from collections import defaultdict
 import csv
-import re
-from joblib import Parallel, delayed
-import ftfy
+from multiprocessing import Pool
 import re
 
-#import gcld3
-from multiprocessing import Pool
+# Third party imports
+import emoji
+from joblib import Parallel, delayed
+from langdetect import detect, detect_langs, DetectorFactory, LangDetectException
+import pandas as pd
 import regex
+from unidecode import unidecode
+import unicodedata
+
+# Local application imports
+import ftfy
 
 
 
