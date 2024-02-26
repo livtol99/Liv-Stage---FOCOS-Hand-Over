@@ -41,6 +41,7 @@ netgraph = "^4.13.2"
 corg = "^0.3"
 imblearn = "^0.0"
 textacy = "^0.13.0"
+wordcloud = "^1.9.3"
 
 
 [build-system]
