@@ -232,6 +232,10 @@ class PipelineCorAnalysis:
             # If 'label' column exists in the original data, add it to the column coordinates
             if 'label' in self.data_subset.columns:
                 column_coordinates = column_coordinates.merge(self.data_subset[['twitter_name', 'label']].drop_duplicates(), left_index=True, right_on='twitter_name')
+            else:
+                proceed = input("The data has no 'label' column, do you still want to run and save the CA? (yes/no): ")
+                if proceed.lower() != 'yes':
+                    return
 
             # Create a new directory with the name of the edgelist if it doesn't exist
             new_dir_path = os.path.join(save_path, f"{self.edgelist_name}_coords")
@@ -247,7 +251,10 @@ class PipelineCorAnalysis:
 
             # Save only the first four dimensions and the 'twitter_name' and 'label' columns
             row_coordinates.iloc[:, :4].to_csv(row_file_path)
-            column_coordinates[['twitter_name', 'label'] + list(column_coordinates.columns[:4])].to_csv(column_file_path)
+            if 'label' in column_coordinates.columns:
+                column_coordinates[['twitter_name', 'label'] + list(column_coordinates.columns[:4])].to_csv(column_file_path)
+            else:
+                column_coordinates.to_csv(column_file_path)
 
         except Exception as e:
             print(f"Error occurred while performing CA analysis: {str(e)}")
