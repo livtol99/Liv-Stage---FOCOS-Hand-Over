@@ -197,9 +197,9 @@ class PipelineCorAnalysis:
         self.create_bipartite_graph()
         self.sanity_checks()
         self.connectedness()
-        #self.plot_degree_cdf()
+        self.plot_degree_cdf()
         self.marker_projection()
-        #self.plot_w_marker_relations()
+        self.plot_w_marker_relations()
         self.calculate_communities()
 
     

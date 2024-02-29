@@ -370,3 +370,8 @@ def check_types(df, group_column, count_column):
 def add_label(df_to_change, df_with_labels, label_column):
     changed_df = df_to_change.merge(df_with_labels[['twitter_name', label_column]], on='twitter_name', how='left')
     return changed_df
+
+def count_unique_labels(df):
+    df_unique = df.drop_duplicates(subset=['twitter_name', 'label'])
+    label_counts = df_unique['label'].value_counts()
+    return label_counts
