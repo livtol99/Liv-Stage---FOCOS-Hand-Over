@@ -6,7 +6,6 @@ import networkx as nx
 
 
 
-
 def plot_type(df, column_coordinates, type_to_plot, color, dimension):
     # Filter for the specified type
     type_df = df[df['type2'] == type_to_plot]
@@ -41,7 +40,7 @@ def plot_type(df, column_coordinates, type_to_plot, color, dimension):
 
     plt.show()
 
-def plot_brands(df, dimension):
+def plot_brands(df, dimension, fontsize=7):
     # Manually specify a color palette
     color_dict = {'consumption': 'blue', 'information': 'yellowgreen', 'football clubs': 'mediumvioletred', 'education': 'darkorange'}
 
@@ -59,15 +58,17 @@ def plot_brands(df, dimension):
 
     scatter = plt.scatter(df_sorted[dimension], y_values, c=df_sorted['color'], alpha = 1)
 
-
-    texts = []
-    # For each point, add a text label
+    # For each point, add a text label with an arrow
     for i in range(len(df_sorted)):
         twitter_name = df_sorted['twitter_name'].iloc[i]
-        texts.append(plt.text(df_sorted[dimension].iloc[i], y_values[i], twitter_name))
+        plt.annotate(twitter_name, 
+                     (df_sorted[dimension].iloc[i], y_values[i]), 
+                     textcoords="offset points", 
+                     xytext=(-30,30), 
+                     ha='center', 
+                     fontsize=fontsize,  # Set font size here
+                     arrowprops=dict(arrowstyle='->', lw=1.5))
 
-    # Adjust text to avoid overlaps and add arrows
-    adjust_text(texts, x=df_sorted[dimension], y=y_values)  
     legend_elements = [Patch(facecolor=color, edgecolor=color, label=type2) for type2, color in color_dict.items()]
     plt.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
 
