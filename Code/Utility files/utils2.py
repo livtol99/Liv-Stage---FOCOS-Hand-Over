@@ -12,6 +12,7 @@ import pandas as pd
 import regex
 from unidecode import unidecode
 import unicodedata
+import numpy as np
 
 # Local application imports
 import ftfy
@@ -375,3 +376,66 @@ def count_unique_labels(df):
     df_unique = df.drop_duplicates(subset=['twitter_name', 'label'])
     label_counts = df_unique['label'].value_counts()
     return label_counts
+
+
+def create_marker_projection(df, unit_normal, dimensions, df_types):
+    """
+    This function creates a projection of the data onto a hyperplane defined by a unit normal.
+    It also merges the 'type' and 'type2' columns from another dataframe.
+
+    Parameters:
+    df (DataFrame): The input dataframe.
+    unit_normal (list): The coordinates for the hyperplane unit normal.
+    dimensions (list): The column names in the dataframe to be used for the dimensions of the projection.
+    df_types (DataFrame): The dataframe containing the 'type' and 'type2' columns.
+
+    Returns:
+    DataFrame: The dataframe with the added projection and merged columns.
+    """
+    # Make the unit normal into an array to facilitate operations
+    unit_normal = np.array(unit_normal)
+
+    # Select the columns corresponding to the dimensions
+    marker_coordinates = df[dimensions].values
+
+    # Perform the dot product operation between the coordinates and the hyperplane unit normal (our new dimension)
+    projections = np.dot(marker_coordinates, unit_normal)
+
+    # Add the projections to your DataFrame
+    df['projection'] = projections
+
+    # Add the 'type' and 'type2' columns from df_types
+    df_types_reduced = df_types.groupby('twitter_name').first().reset_index()
+    df = df.merge(df_types_reduced[['twitter_name', 'type', 'type2']], on='twitter_name', how='left')
+
+    return df
+
+def create_user_projection(df, unit_normal, dimensions):
+    """
+    This function creates a projection of the data onto a hyperplane defined by a unit normal.
+    It adds 'follower_id' instead of 'twitter_name'.
+
+    Parameters:
+    df (DataFrame): The input dataframe.
+    unit_normal (list): The coordinates for the hyperplane unit normal.
+    dimensions (list): The column names in the dataframe to be used for the dimensions of the projection.
+
+    Returns:
+    DataFrame: The dataframe with the added projection and 'follower_id'.
+    """
+    # Make the unit normal into an array to facilitate operations
+    unit_normal = np.array(unit_normal)
+
+    # Select the columns corresponding to the dimensions
+    marker_coordinates = df[dimensions].values
+
+    # Perform the dot product operation between the coordinates and the hyperplane unit normal (our new dimension)
+    projections = np.dot(marker_coordinates, unit_normal)
+
+    # Add the projections to your DataFrame
+    df['projection'] = projections
+
+    # Reorder the DataFrame based on the 'projection' column from highest to lowest
+    df = df.sort_values(by='projection', ascending=False)
+
+    return df

@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 from mpl_toolkits.mplot3d import Axes3D
 from corg import BenchmarkDimension, DiscoverDimension
-from mpl_toolkits.mplot3d import Axes3D
-
 
 class CorgPipeline:
     def __init__(self, file_number, n_dimensions):
@@ -116,9 +114,6 @@ class CorgPipeline:
         ax.scatter(self.df.loc[self.df['label'] == 1,'0'],self.df.loc[self.df['label'] == 1,'1'],self.df.loc[self.df['label'] == 1,'2'],alpha=0.7,c='blue')
         ax.quiver(0, 0, 0, normal[0], normal[1], normal[2],color='green',length=1,normalize=True)
         ax.set_xlabel('0'),ax.set_ylabel('1'),ax.set_zlabel('2')
-
-        # Change the viewpoint to view from below
-        ax.view_init(elev=5, azim=50)
     
     def func2_metrics(self):
         if not hasattr(self, 'discover_model'):
@@ -130,6 +125,6 @@ class CorgPipeline:
         self.drop_na()
         print(f"Outputs for CORG functionality 2. Model number {self.file_number}")
         self.fit_discover_model()
-        #self.plot_discover_model()
+        self.plot_discover_model()
         self.plot_discover_model_3d()
         self.func2_metrics()
