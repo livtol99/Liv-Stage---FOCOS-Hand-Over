@@ -427,10 +427,10 @@ def create_user_projection(df, unit_normal, dimensions):
     unit_normal = np.array(unit_normal)
 
     # Select the columns corresponding to the dimensions
-    marker_coordinates = df[dimensions].values
+    user_coordinates = df[dimensions].values
 
     # Perform the dot product operation between the coordinates and the hyperplane unit normal (our new dimension)
-    projections = np.dot(marker_coordinates, unit_normal)
+    projections = np.dot(user_coordinates, unit_normal)
 
     # Add the projections to your DataFrame
     df['projection'] = projections
