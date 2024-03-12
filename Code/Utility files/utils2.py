@@ -439,3 +439,14 @@ def create_user_projection(df, unit_normal, dimensions):
     df = df.sort_values(by='projection', ascending=False)
 
     return df
+
+
+def write_ngrams_to_csv(ngrams, filename):
+    # Transform the data into a format suitable for CSV
+    ngrams_csv = [(' '.join(ngram), count) for ngram, count in ngrams]
+
+    # Write the data to a CSV file
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Ngram", "Count"])  # write the header
+        writer.writerows(ngrams_csv)  # write the data
