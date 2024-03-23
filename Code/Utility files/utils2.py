@@ -14,6 +14,12 @@ from unidecode import unidecode
 import unicodedata
 import numpy as np
 
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.util import ngrams
+from collections import Counter
+
 # Local application imports
 import ftfy
 
@@ -450,3 +456,62 @@ def write_ngrams_to_csv(ngrams, filename):
         writer = csv.writer(file)
         writer.writerow(["Ngram", "Count"])  # write the header
         writer.writerows(ngrams_csv)  # write the data
+
+def get_ngram_freq(text, n):
+    # Remove URLs
+    text = re.sub(r'http\S+|www.\S+', '', text)
+
+    # Tokenize the string into words
+    words = word_tokenize(text)
+
+    # Remove punctuation and convert to lower case
+    words = [word.lower() for word in words if word.isalpha()]
+
+    # Remove French stopwords
+    nltk.download('stopwords')
+    stop_words = set(stopwords.words('french'))
+    words = [word for word in words if word not in stop_words]
+
+    # Create ngrams
+    ngram = ngrams(words, n)
+    ngram_freq = Counter(ngram)
+
+    return ngram_freq
+
+
+def process_text(text, stop_words):
+    # Remove URLs
+    text = re.sub(r'http\S+|www.\S+', '', text)
+    # Replace hashtags and mentions with just the word
+    text = re.sub(r'[@#](\w+)', r'\1', text)
+    # Tokenize the string into words
+    words = nltk.word_tokenize(text)
+    # Remove punctuation and convert to lower case
+    words = [word.lower() for word in words if word.isalpha()]
+    # Remove French stopwords
+    words = [word for word in words if word not in stop_words]
+    return words
+
+def get_ngrams(words, n):
+    # Create ngrams
+    ngram_list = list(ngrams(words, n))
+    return ngram_list
+
+def separate_ngrams(ngrams):
+    unigrams = [gram for gram in ngrams if len(gram) == 1 or (len(gram) == 2 and gram[1] == '')]
+    bigrams = [gram for gram in ngrams if len(gram) == 2 and gram[1] != '']
+    trigrams = [gram for gram in ngrams if len(gram) == 3]
+    return {'unigrams_detected': unigrams, 'bigrams_detected': bigrams, 'trigrams_detected': trigrams}
+
+def tokenize_bios(df, stop_words):
+    # Tokenize the bios
+    df['description_cleantext_tokens'] = df['description_cleantext'].apply(lambda x: process_text(x, stop_words))
+
+    # Initialize the total_n_grams column as an empty list
+    df['total_n_grams'] = [[] for _ in range(len(df))]
+
+    # Apply the get_ngrams function for n=1, 2, 3 and add the results to total_n_grams
+    for n in range(1, 4):
+        df['total_n_grams'] = df['total_n_grams'] + df['description_cleantext_tokens'].apply(lambda x: get_ngrams(x, n))
+    
+    return df

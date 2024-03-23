@@ -47,6 +47,7 @@ textnets = "^0.9.4"
 requests = "^2.31.0"
 chardet = "^5.2.0"
 spacy = "^3.7.4"
+statsmodels = "^0.14.1"
 
 
 [build-system]
