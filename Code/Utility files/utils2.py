@@ -493,8 +493,10 @@ def process_text(text, stop_words):
     return words
 
 def get_ngrams(words, n):
-    # Create ngrams
-    ngram_list = list(ngrams(words, n))
+    # Create ngrams for all numbers up to and including n
+    ngram_list = []
+    for i in range(1, n+1):
+        ngram_list.extend(list(ngrams(words, i)))
     return ngram_list
 
 def separate_ngrams(ngrams):
@@ -515,3 +517,26 @@ def tokenize_bios(df, stop_words):
         df['total_n_grams'] = df['total_n_grams'] + df['description_cleantext_tokens'].apply(lambda x: get_ngrams(x, n))
     
     return df
+
+def calculate_common_ngrams(set1, set2):
+    return len(set1.intersection(set2))
+
+def find_all_matches(bio_ngrams, income_df):
+    matches = []
+    for _, row in income_df.iterrows():
+        if bio_ngrams.intersection(row['ngrams']):
+            matches.append(row['PCS_ESE'])
+    return matches
+
+
+def preprocess_text(text):
+    # Convert the text to lowercase
+    text = text.lower()
+    
+    # Parse the text with spaCy
+    doc = nlp(text)
+    
+    # Remove stopwords and punctuation, and lemmatize the words
+    tokens = [token.lemma_ for token in doc if not token.is_stop and not token.is_punct]
+    
+    return tokens
