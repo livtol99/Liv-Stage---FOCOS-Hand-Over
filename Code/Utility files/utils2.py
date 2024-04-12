@@ -528,8 +528,12 @@ def find_all_matches(bio_ngrams, income_df):
             matches.append(row['PCS_ESE'])
     return matches
 
+def find_all_matches2(bio_ngrams, income_df):
+    overlap = income_df['ngrams'].apply(lambda x: any(i in x for i in bio_ngrams if len(i.split()) > 1))
+    matches = income_df.loc[overlap, 'PCS_ESE'].tolist()
+    return matches
 
-def preprocess_text(text):
+def preprocess_text(text, nlp):
     # Convert the text to lowercase
     text = text.lower()
     
