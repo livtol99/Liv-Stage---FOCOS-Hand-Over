@@ -521,12 +521,6 @@ def tokenize_bios(df, stop_words):
 def calculate_common_ngrams(set1, set2):
     return len(set1.intersection(set2))
 
-def find_all_matches(bio_ngrams, income_df):
-    matches = []
-    for _, row in income_df.iterrows():
-        if bio_ngrams.intersection(row['ngrams']):
-            matches.append(row['PCS_ESE'])
-    return matches
 
 def find_all_matches2(bio_ngrams, income_df):
     overlap = income_df['ngrams'].apply(lambda x: any(i in x for i in bio_ngrams if len(i.split()) > 1))
