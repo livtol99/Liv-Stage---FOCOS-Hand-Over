@@ -20,6 +20,8 @@ from nltk.corpus import stopwords
 from nltk.util import ngrams
 from collections import Counter
 
+import os
+
 # Local application imports
 import ftfy
 
@@ -538,3 +540,53 @@ def preprocess_text(text, nlp):
     tokens = [token.lemma_ for token in doc if not token.is_stop and not token.is_punct]
     
     return tokens
+
+
+def filter_add_jobs_coords(file_number, jobdf):
+    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
+    print(f"Constructed file path: {file_path}") 
+    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
+
+    # Filter df based on jobdf
+    comparison_ids = jobdf['follower_id'].unique()
+    df = df[df['follower_id'].isin(comparison_ids)]
+
+    # Merge
+    jobdf = jobdf.drop(columns=['0'])
+    df = pd.merge(df, jobdf, on='follower_id', how='left')
+
+    #Strip leading and trailing spaces from 'title' column
+    df['title'] = df['title'].str.strip()
+
+    # Check if directory exists, if not, create it
+    directory = "/home/livtollanes/NewData/job_title_coordinates"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Constructed job coord path: {directory}")
+    
+    # Save df to CSV file in directory
+    output_file_path = f"{directory}/m{file_number}_jobs_rowcoords.csv"
+    df.to_csv(output_file_path, sep = ',', index = False)
+
+    return df
+
+
+def load_all_row_coords_files(n):
+    files = []  # list to store all dataframes
+
+    for file_number in range(1, n+1):
+        file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
+        print(f"Used file path: {file_path}") 
+        df = pd.read_csv(file_path, dtype={'follower_id': str})
+
+        # Add df to list of dataframes
+        files.append(df)
+
+    return files
+
+def load_CA_model_files(file_number):
+    file_path = f"/home/livtollanes/NewData/job_title_coordinates/m{file_number}_jobs_rowcoords.csv"
+    print(f"Used file path: {file_path}") 
+    df = pd.read_csv(file_path, dtype={'follower_id': str})
+
+    return df
