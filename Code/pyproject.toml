@@ -50,6 +50,7 @@ spacy = "^3.7.4"
 statsmodels = "^0.14.1"
 facebook-business = "^19.0.2"
 pycountry = "^23.12.11"
+dataframe-image = "^0.2.3"
 
 
 [build-system]

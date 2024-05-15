@@ -68,13 +68,22 @@ class PipelineCorAnalysis:
 
     def connectedness(self):
         # Calculate weakly connected components
-        connected_components = list(nx.weakly_connected_components(self.B))
+        weakly_connected_components = list(nx.weakly_connected_components(self.B))
 
-        # Print the number of connected components
-        print("Number of connected components:", len(connected_components))
+        # Print the number of weakly connected components
+        print("Number of weakly connected components:", len(weakly_connected_components))
 
-        # Print the size of the largest connected component
-        print("Size of largest connected component:", max(len(c) for c in connected_components))
+        # Print the size of the largest weakly connected component
+        print("Size of largest weakly connected component:", max(len(c) for c in weakly_connected_components))
+
+        # Calculate strongly connected components
+        strongly_connected_components = list(nx.strongly_connected_components(self.B))
+
+        # Print the number of strongly connected components
+        print("Number of strongly connected components:", len(strongly_connected_components))
+
+        # Print the size of the largest strongly connected component
+        print("Size of largest strongly connected component:", max(len(c) for c in strongly_connected_components))
     
     def plot_degree_cdf(self):
         followers = [n for n, d in self.B.nodes(data=True) if d['bipartite']==0]
