@@ -26,8 +26,6 @@ import os
 import ftfy
 
 
-
-
 def print_lines(path, file, start_line, end_line):
     """
     Print lines from a file within a given range.
@@ -55,13 +53,29 @@ def fileloader(path, file, req_cols, dtypes):
     return pd.read_csv(f"{path}/{file}", delimiter=',', quotechar='"', low_memory=False, usecols=req_cols, dtype=dtypes)
 
 def summary_stats(df, print_dtypes=True):
+    """
+    Prints summary statistics for a given DataFrame.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame for which to print summary statistics.
+    print_dtypes (bool, optional): Whether to print the data types of the DataFrame's columns. Defaults to True.
+
+    The function prints the following:
+    - The shape of the DataFrame.
+    - The names of the DataFrame's columns.
+    - The data types of the DataFrame's columns (if print_dtypes is True).
+    - The number of unique and duplicate values in the 'follower_id', 'id', and 'marker_id' columns (if they exist in the DataFrame).
+    - The number of missing values in each column.
+    - The number of duplicate rows in the DataFrame.
+    """
     print("Shape of DataFrame: ", df.shape)
     print("\nColumns in DataFrame: ", df.columns.tolist())
     
     if print_dtypes:
         print("\nData types of columns:\n", df.dtypes)
     
-    subset_columns = ['follower_id', 'id', 'marker_id']  # Add 'marker_id' to the list
+    subset_columns = ['follower_id', 'id', 'marker_id']  
+
     subset = [col for col in subset_columns if col in df.columns]
     
     for col in subset:
@@ -346,7 +360,7 @@ def min_french_followers(df, min_followers):
     removed_rows = df.loc[~df.index.isin(filtered_df.index)]
 
     # Get the 'twitter_name' and 'french_followers' columns of the removed rows
-    removed_info = removed_rows[['twitter_name', 'followers','french_followers', 'type']]
+    removed_info = removed_rows[['twitter_name', 'marker_followers','french_followers', 'type']]
 
     # Remove duplicate 'twitter_name' rows
     removed_info = removed_info.drop_duplicates(subset='twitter_name')

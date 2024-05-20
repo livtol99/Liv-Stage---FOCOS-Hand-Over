@@ -216,7 +216,6 @@ class PipelineCorAnalysis:
     def create_contingency_table(self):
         # Create the contingency table
         self.contingency_table = pd.crosstab(self.data_subset['follower_id'], self.data_subset['twitter_name'])
-
     
     def perform_ca_analysis(self, save_path, n_components=100, n_iter=100):
         try:

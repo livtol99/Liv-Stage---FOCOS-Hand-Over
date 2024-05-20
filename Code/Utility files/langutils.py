@@ -5,7 +5,6 @@ from joblib import Parallel, delayed
 
 
 
-
 def detect_language(bio):
     """
     Detect the language of a string using the langdetect library.
