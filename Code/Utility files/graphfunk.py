@@ -208,7 +208,7 @@ def full_plot_function(df, dimension, types_to_plot, type_style, fontsize=6):
     This function is to be used for plotting all, or some, brands along a dimension of desire.
     Creates a scatter plot of the data in the provided dataframe along the specified dimension. 
     The points are colored according to their type, and a legend is included that shows the color associated with each type.
-    Option to plot the old or new type classification.
+    Option to plot the old or new_types type classification.
     Option to plot all or some brands only. 
 
     Parameters:

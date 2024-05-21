@@ -400,19 +400,17 @@ def count_unique_labels(df):
     return label_counts
 
 
-def create_marker_projection(df, unit_normal, dimensions, df_types):
+def create_marker_projection(df, unit_normal, dimensions):
     """
     This function creates a projection of the data onto a hyperplane defined by a unit normal.
-    It also merges the 'type' and 'type2' columns from another dataframe.
 
     Parameters:
     df (DataFrame): The input dataframe.
     unit_normal (list): The coordinates for the hyperplane unit normal.
     dimensions (list): The column names in the dataframe to be used for the dimensions of the projection.
-    df_types (DataFrame): The dataframe containing the 'type' and 'type2' columns.
 
     Returns:
-    DataFrame: The dataframe with the added projection and merged columns.
+    DataFrame: The dataframe with the added projection.
     """
     # Make the unit normal into an array to facilitate operations
     unit_normal = np.array(unit_normal)
@@ -426,9 +424,7 @@ def create_marker_projection(df, unit_normal, dimensions, df_types):
     # Add the projections to your DataFrame
     df['projection'] = projections
 
-    # Add the 'type' and 'type2' columns from df_types
-    df_types_reduced = df_types.groupby('twitter_name').first().reset_index()
-    df = df.merge(df_types_reduced[['twitter_name', 'type', 'type2']], on='twitter_name', how='left')
+    return df
 
     return df
 

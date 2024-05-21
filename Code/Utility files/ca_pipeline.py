@@ -27,7 +27,6 @@ class PipelineCorAnalysis:
 
     def get_edgelist_name(self, data_subset_name):
         # Extract the name from the DataFrame
-        # This is a placeholder - replace this with your actual code
         return data_subset_name
 
     # Graph checks methods
@@ -237,11 +236,11 @@ class PipelineCorAnalysis:
             row_coordinates = ca.row_coordinates(self.contingency_table)
             column_coordinates = ca.column_coordinates(self.contingency_table)
 
-            # If 'label' column exists in the original data, add it to the column coordinates
-            if 'label' in self.data_subset.columns:
-                column_coordinates = column_coordinates.merge(self.data_subset[['twitter_name', 'label']].drop_duplicates(), left_index=True, right_on='twitter_name')
+            # If 'label', 'type', and 'type2' columns exist in the original data, add them to the column coordinates
+            if all(item in self.data_subset.columns for item in ['label', 'type', 'type2']):
+                column_coordinates = column_coordinates.merge(self.data_subset[['twitter_name', 'label', 'type', 'type2']].drop_duplicates(), left_index=True, right_on='twitter_name')
             else:
-                proceed = input("The data has no 'label' column, do you still want to run and save the CA? (yes/no): ")
+                proceed = input("The data has no 'label', 'type', or 'type2' column, do you still want to run and save the CA? (yes/no): ")
                 if proceed.lower() != 'yes':
                     return
 
@@ -257,12 +256,14 @@ class PipelineCorAnalysis:
             row_file_path = self.get_unique_filepath(row_file_path)
             column_file_path = self.get_unique_filepath(column_file_path)
 
-            # Save only the first four dimensions and the 'twitter_name' and 'label' columns
-            row_coordinates.iloc[:, :4].to_csv(row_file_path)
-            if 'label' in column_coordinates.columns:
-                column_coordinates[['twitter_name', 'label'] + list(column_coordinates.columns[:4])].to_csv(column_file_path)
+            # Save only the first four dimensions and the 'twitter_name', 'label', 'type', and 'type2' columns
+            if all(item in column_coordinates.columns for item in ['label', 'type', 'type2']):
+                column_coordinates[['twitter_name', 'label', 'type', 'type2'] + list(column_coordinates.columns[:4])].to_csv(column_file_path)
             else:
                 column_coordinates.to_csv(column_file_path)
+
+            # Save only the first four dimensions
+            row_coordinates.iloc[:, :4].to_csv(row_file_path)
 
         except Exception as e:
             print(f"Error occurred while performing CA analysis: {str(e)}")

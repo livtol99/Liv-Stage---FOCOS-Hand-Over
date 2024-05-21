@@ -1,5 +1,5 @@
 
-import pandas as pd
+import pandnew_types as pd
 from langdetect import detect_langs, LangDetectException, DetectorFactory
 from joblib import Parallel, delayed
 
