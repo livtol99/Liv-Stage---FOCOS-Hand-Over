@@ -554,7 +554,7 @@ def preprocess_text(text, nlp):
 
 def filter_add_jobs_coords(file_number, jobdf):
     file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
-    print(f"Constructed file path: {file_path}") 
+    print(f"Used file path: {file_path}") 
     df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
 
     # Filter df based on jobdf
