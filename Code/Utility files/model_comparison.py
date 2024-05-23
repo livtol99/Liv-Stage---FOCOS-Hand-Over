@@ -7,6 +7,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import GroupKFold, KFold
 import seaborn as sns
 import matplotlib.patches as mpatches
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
 
 class CrossValidation:
     def __init__(self, dfs, predictors, outcome, n_splits=10):
@@ -135,16 +137,15 @@ class CrossValidation:
             # Group by grouping_column and calculate mean coordinates
             df_grouped = df.groupby(grouping_column).mean()
             # Calculate correlation with outcome for each predictor
-            corr_values = df_grouped.corr()[self.outcome].drop(self.outcome)
-            # Get predictor with highest correlation
-            max_corr_predictor = corr_values.idxmax()
-            max_corr_value = corr_values.max()
+            corr_values = df_grouped.corr(method='spearman')[self.outcome].drop(self.outcome)
+            # Get predictor with highest absolute correlation
+            max_corr_predictor = corr_values.abs().idxmax()
+            max_corr_value = corr_values[max_corr_predictor]
             correlations[f'DataFrame {i}'] = (max_corr_predictor, max_corr_value)
         correlations_df = pd.DataFrame(list(correlations.items()), columns=['DataFrame', 'Max Correlation'])
         correlations_df[['Predictor', 'Correlation']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
         correlations_df = correlations_df.drop(columns=['Max Correlation'])
         print(correlations_df)
-
 
     def plot_mean_true_vs_predicted(self):
         # Determine the layout of the subplots
@@ -301,10 +302,38 @@ class CrossValidation:
             fig.delaxes(ax)
 
         for ax, (df_name, pcs_ese_values) in zip(axes, residuals_dict.items()):
+            residuals_list = []
+            fitted_values_list = []
             for pcs_ese_value, residuals in pcs_ese_values.items():
                 color = color_map.get(pcs_ese_value, 'black')
                 fitted_values = fitted_dict[df_name][pcs_ese_value]
                 sns.scatterplot(x=[fitted_values], y=[residuals], ax=ax, color=color)
+                residuals_list.append(residuals)
+                fitted_values_list.append(fitted_values)
+
+            # Calculate standard deviation of residuals
+            residuals_std = np.std(residuals_list)
+
+            # Define outlier threshold as 2.5 times the standard deviation
+            outlier_threshold = 2.5 * residuals_std
+
+            for pcs_ese_value, residuals in pcs_ese_values.items():
+                fitted_values = fitted_dict[df_name][pcs_ese_value]
+
+                # If the residuals are an outlier, add a label
+                if abs(residuals) > outlier_threshold:
+                    ax.text(fitted_values, residuals, pcs_ese_value, ha='center')
+
+            # Calculate lowess line for all data
+            lowess_line = lowess(residuals_list, fitted_values_list)
+
+            # Calculate upper and lower bounds for smoothed area
+            upper_bound = lowess_line[:, 1] + residuals_std
+            lower_bound = lowess_line[:, 1] - residuals_std
+
+            # Add smoothed area to plot
+            ax.fill_between(lowess_line[:, 0], lower_bound, upper_bound, color='black', alpha=0.2)
+
             ax.axhline(0, color='red', linestyle='--')  # Add a horizontal line at y=0
             ax.set_title(f'Mean Residuals vs Mean Fitted for {df_name}')
             ax.set_xlabel('Mean Fitted values')
