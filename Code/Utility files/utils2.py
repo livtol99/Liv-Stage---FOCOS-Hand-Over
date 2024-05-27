@@ -581,6 +581,28 @@ def filter_add_jobs_coords(file_number, jobdf):
     return df
 
 
+def merge_bio_coords(file_number, biodf):
+    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
+    print(f"Used file path: {file_path}") 
+    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
+
+    # Filter df based on biodf
+    comparison_ids = biodf['follower_id'].unique()
+    df = df[df['follower_id'].isin(comparison_ids)]
+
+    # Select only the specified columns from biodf
+    biodf = biodf[['follower_id', 'description_cleantext', 'language', 'country', 'screen_name']]
+
+    # Merge
+    df = pd.merge(df, biodf, on='follower_id', how='left')
+
+    # Save df to CSV file in the same directory but with a different name
+    output_file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_full.csv"
+    df.to_csv(output_file_path, sep = ',', index = False)
+
+    return df
+
+
 def load_all_row_coords_files(n):
     files = []  # list to store all dataframes
 
@@ -594,9 +616,32 @@ def load_all_row_coords_files(n):
 
     return files
 
-def load_CA_model_files(file_number):
-    file_path = f"/home/livtollanes/NewData/job_title_coordinates/m{file_number}_jobs_rowcoords.csv"
-    print(f"Used file path: {file_path}") 
-    df = pd.read_csv(file_path, dtype={'follower_id': str})
 
-    return df
+def load_all_column_coords_files(n):
+    files = []  # list to store all dataframes
+
+    for file_number in range(1, n+1):
+        file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_column_coordinates.csv"
+        print(f"Used file path: {file_path}") 
+        df = pd.read_csv(file_path, dtype={'follower_id': str})
+
+        # Add df to list of dataframes
+        files.append(df)
+
+    return files
+
+def load_CA_model_files(n):
+    files = []  # list to store all dataframes
+
+    for file_number in range(1, n+1):
+        file_path = f"/home/livtollanes/NewData/job_title_coordinates/m{file_number}_jobs_rowcoords.csv"
+        print(f"Used file path: {file_path}") 
+        df = pd.read_csv(file_path, dtype={'follower_id': str})
+
+        # Replace spaces in column names with underscores
+        df.columns = df.columns.str.replace(' ', '_')
+
+        # Add df to list of dataframes
+        files.append(df)
+
+    return files

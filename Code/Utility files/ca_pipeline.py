@@ -11,6 +11,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from networkx.algorithms import bipartite
 from netgraph import Graph
+from matplotlib.ticker import FuncFormatter
+
 
 
 class PipelineCorAnalysis:
@@ -24,6 +26,7 @@ class PipelineCorAnalysis:
 
         self.data_subset = data_subset
         self.edgelist_name = self.get_edgelist_name(data_subset_name)
+        self.subset_name = data_subset_name  
 
     def get_edgelist_name(self, data_subset_name):
         # Extract the name from the DataFrame
@@ -100,10 +103,14 @@ class PipelineCorAnalysis:
         ccdf = 1 - cum_counts
 
         # Plot the CCDF on a log-log scale
+        plt.figure(figsize=(10, 7))
         plt.loglog(bin_edges[:-1], ccdf, marker='.')
         plt.xlabel('Out-Degree')
         plt.ylabel('CCDF')
-        plt.title('CCDF of Out-Degrees on a log-log scale')
+
+        # Include subset_name in the title
+        plt.title(f'CCDF of Out-Degrees on a log-log scale for {self.subset_name}')
+
         plt.show()
 
         # Calculate the complementary cumulative distribution function (CCDF)for in_degrees 
@@ -112,11 +119,31 @@ class PipelineCorAnalysis:
         ccdf = 1 - cum_counts
 
         # Plot the CCDF on a log-log scale
+        plt.figure(figsize=(10, 7))
         plt.loglog(bin_edges[:-1], ccdf, marker='.', color='green')
         plt.xlabel('In-Degree')
         plt.ylabel('CCDF')
-        plt.title('CCDF of In-Degrees on a log-log scale')
+
+        # Include subset_name in the title
+        plt.title(f'CCDF of In-Degrees on a log-log scale for {self.subset_name}')
+
         plt.show()
+    
+    def top_five_markers_in_degree(self):
+        # Calculate in-degree centrality for each node in the graph
+        in_degree_centrality = nx.in_degree_centrality(self.B)
+
+        # Filter the nodes to only include markers
+        markers = [n for n, d in self.B.nodes(data=True) if d['bipartite']==1]
+        marker_in_degree = {marker: in_degree_centrality[marker] for marker in markers}
+
+        # Sort the markers by in-degree centrality and select the top five
+        top_five_markers = sorted(marker_in_degree.items(), key=lambda item: item[1], reverse=True)[:5]
+
+        # Print the top five markers and their types
+        for marker, centrality in top_five_markers:
+            marker_type = self.data_subset[self.data_subset['twitter_name'] == marker]['type2'].iloc[0]
+            print(f"Marker: {marker}, Type: {marker_type}, In-Degree Centrality: {centrality}")
     
     def marker_projection(self):
         if not hasattr(self, 'B'):
@@ -180,11 +207,13 @@ class PipelineCorAnalysis:
         patches = [mpatches.Patch(color=color, label=utype) for utype, color in type_color.items()]
         plt.legend(handles=patches, loc='center left', bbox_to_anchor=(0.95, 0.5), bbox_transform=plt.gcf().transFigure)
 
+        # Include subset_name in the title
+        plt.title(f'Marker Relations for {self.subset_name}')
+
         # Remove axes
         plt.axis('off')
 
         plt.show()
-    
     def calculate_communities(self):
         if not hasattr(self, 'G2_markers'):
             self.marker_projection()
@@ -209,6 +238,7 @@ class PipelineCorAnalysis:
         self.marker_projection()
         self.plot_w_marker_relations()
         self.calculate_communities()
+        self.top_five_markers_in_degree()
 
     
     # CA fitting methods
@@ -268,9 +298,8 @@ class PipelineCorAnalysis:
         except Exception as e:
             print(f"Error occurred while performing CA analysis: {str(e)}")
  
-    def plot_variance(self):
-        import matplotlib.pyplot as plt
 
+    def plot_variance(self):
         # Get the percentage of variance
         percentage_of_variance = self.ca.percentage_of_variance_
 
@@ -281,8 +310,11 @@ class PipelineCorAnalysis:
         plt.figure(figsize=(10, 7))
         plt.bar(dimensions, percentage_of_variance)
         plt.xlabel('Dimensions')
-        plt.ylabel('Percentage of Variance')
-        plt.title('Percentage of Total Variance per Dimension')
+        plt.ylabel('Inertia Explained (%)')  
+
+        # Include subset_name in the title
+        plt.title(f'Percentage of Inertia Explained per Dimension for {self.subset_name}')
+
         plt.show()
 
     def get_unique_filepath(self, filepath):

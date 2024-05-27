@@ -128,6 +128,23 @@ class CrossValidation:
         plt.tight_layout()
         plt.show()
     
+    def calculate_correlations_median(self, grouping_column):
+        correlations = {}
+        for i, df in enumerate(self.dfs, start=1):
+            # Select only required columns
+            df = df[self.predictors + [self.outcome, grouping_column]]
+            # Group by grouping_column and calculate median coordinates
+            df_grouped = df.groupby(grouping_column).median()
+            # Calculate correlation with outcome for each predictor
+            corr_values = df_grouped.corr(method='spearman')[self.outcome].drop(self.outcome)
+            # Get predictor with highest absolute correlation
+            max_corr_predictor = corr_values.abs().idxmax()
+            max_corr_value = corr_values[max_corr_predictor]
+            correlations[f'DataFrame {i}'] = (max_corr_predictor, max_corr_value)
+        correlations_df = pd.DataFrame(list(correlations.items()), columns=['DataFrame', 'Max Correlation'])
+        correlations_df[['Predictor', 'Correlation']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
+        correlations_df = correlations_df.drop(columns=['Max Correlation'])
+        print(correlations_df)
 
     def calculate_correlations(self, grouping_column):
         correlations = {}
