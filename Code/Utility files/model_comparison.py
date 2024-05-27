@@ -8,7 +8,9 @@ from sklearn.model_selection import GroupKFold, KFold
 import seaborn as sns
 import matplotlib.patches as mpatches
 from statsmodels.nonparametric.smoothers_lowess import lowess
-
+from scipy.stats import shapiro    
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
 
 class CrossValidation:
     def __init__(self, dfs, predictors, outcome, n_splits=10):
@@ -103,6 +105,27 @@ class CrossValidation:
 
         # Print the number of folds used in the cross-validation
         print(f"\nNumber of folds used in the group fold cross-validation: {self.gkf.n_splits}")
+
+
+    def assess_normality(self):
+        for i, df in enumerate(self.dfs, start=1):  # start=1 to make the index 1-based
+            # Fit a WLS model on the entire DataFrame
+            X = sm.add_constant(df[self.predictors])  # Adding the intercept term
+            y = df[self.outcome]
+            model = sm.OLS(y, X)
+            results = model.fit()
+
+            # Calculate residuals
+            residuals = y - results.predict(X)
+
+            # Plot a Q-Q plot of the residuals
+            sm.qqplot(residuals, line='s')
+            plt.title(f'Q-Q Plot of Residuals for DataFrame {i}')
+            plt.show()
+
+            # Perform a Shapiro-Wilk test on the residuals
+            shapiro_test = shapiro(residuals)
+            print(f'Shapiro-Wilk Test for DataFrame {i}: W={shapiro_test[0]}, p={shapiro_test[1]}')
     
     def print_summaries(self):
         for df_number, summary in self.summary_outputs:

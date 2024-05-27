@@ -645,3 +645,12 @@ def load_CA_model_files(n):
         files.append(df)
 
     return files
+
+from scipy.stats import zscore
+
+def remove_outliers(df, value_col, z_threshold):
+    original_len = len(df)
+    df['z_score'] = zscore(df[value_col])
+    df = df[df['z_score'].abs() <= z_threshold]
+    print(f"Removed {original_len - len(df)} rows.")
+    return df
