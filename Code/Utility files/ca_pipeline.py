@@ -310,7 +310,7 @@ class PipelineCorAnalysis:
         plt.figure(figsize=(10, 7))
         plt.bar(dimensions, percentage_of_variance)
         plt.xlabel('Dimensions')
-        plt.ylabel('Inertia Explained (%)')  
+        plt.ylabel('Inertia (%)')  
 
         # Include subset_name in the title
         plt.title(f'Percentage of Inertia Explained per Dimension for {self.subset_name}')

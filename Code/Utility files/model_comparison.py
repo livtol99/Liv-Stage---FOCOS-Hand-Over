@@ -11,6 +11,8 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 from scipy.stats import shapiro    
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
+import scipy
+from scipy.stats import spearmanr
 
 class CrossValidation:
     def __init__(self, dfs, predictors, outcome, n_splits=10):
@@ -132,6 +134,58 @@ class CrossValidation:
             print(f"Summary for DataFrame {df_number}:")
             print(summary)
 
+
+    def plot_fitted_vs_raw_data(self):
+        num_dfs = len(self.dfs)
+        num_cols = 3
+        num_rows = math.ceil(num_dfs / num_cols)
+
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
+        axes = axes.flatten()
+        for ax in axes[num_dfs:]:
+            fig.delaxes(ax)
+
+        for ax, df in zip(axes, self.dfs):
+            df = df.copy()
+            df['color'] = df['PCS_ESE'].str[0].astype(str)  # Ungrouped data
+            grouped_df = df.groupby('PCS_ESE')[self.predictors + [self.outcome]].mean()  # Grouped data
+            grouped_df['color'] = grouped_df.index.str[0].astype(str)
+
+            # Fit a WLS model on the entire DataFrame
+            X = sm.add_constant(grouped_df[self.predictors])  # Adding the intercept term
+            y = grouped_df[self.outcome]
+            model = sm.OLS(y, X)
+            results = model.fit()
+
+            # Calculate residuals
+            residuals = y - results.predict(X)
+
+            # Estimate weights as the inverse of the squared residuals
+            weights = 1.0 / (residuals ** 2)
+
+            # Fit a WLS model using the estimated weights
+            model_wls = sm.WLS(y, X, weights=weights)
+            results_wls = model_wls.fit()
+
+            # Get the predicted values
+            y_pred = results_wls.predict(X)
+
+            # Plot raw data
+            for color in df['color'].unique():
+                ax.scatter(df.loc[df['color'] == color, self.predictors[0]], 
+                           df.loc[df['color'] == color, self.outcome], 
+                           label=f'PCS_ESE Class {color}')
+
+            # Plot fitted line
+            ax.plot(grouped_df[self.predictors[0]], y_pred, color='red', label='Fitted line')
+            ax.set_title(f'Fitted vs Raw Data')
+            ax.set_xlabel('Predictors')
+            ax.set_ylabel(self.outcome)
+            ax.legend()
+
+        plt.tight_layout()
+        plt.show()
+
     def plot_residuals(self):
         num_dfs = len(self.residuals_dict)
         num_cols = 3
@@ -151,6 +205,8 @@ class CrossValidation:
         plt.tight_layout()
         plt.show()
     
+    from scipy.stats import spearmanr
+
     def calculate_correlations_median(self, grouping_column):
         correlations = {}
         for i, df in enumerate(self.dfs, start=1):
@@ -158,34 +214,29 @@ class CrossValidation:
             df = df[self.predictors + [self.outcome, grouping_column]]
             # Group by grouping_column and calculate median coordinates
             df_grouped = df.groupby(grouping_column).median()
-            # Calculate correlation with outcome for each predictor
-            corr_values = df_grouped.corr(method='spearman')[self.outcome].drop(self.outcome)
+
+            if len(self.predictors) == 1:
+                # If there's only one predictor, calculate the correlation and p-value directly
+                corr_value, p_value = spearmanr(df_grouped[self.predictors[0]], df_grouped[self.outcome])
+                corr_values = pd.Series([corr_value], index=self.predictors)
+                p_values = pd.Series([p_value], index=self.predictors)
+            else:
+                # Calculate correlation with outcome for each predictor
+                corr_values, p_values = spearmanr(df_grouped)
+                corr_values = pd.Series(corr_values[-1, :-1], index=self.predictors)
+                p_values = pd.Series(p_values[-1, :-1], index=self.predictors)
+
             # Get predictor with highest absolute correlation
             max_corr_predictor = corr_values.abs().idxmax()
             max_corr_value = corr_values[max_corr_predictor]
-            correlations[f'DataFrame {i}'] = (max_corr_predictor, max_corr_value)
+            max_p_value = p_values[max_corr_predictor]
+            correlations[f'DataFrame {i}'] = (max_corr_predictor, max_corr_value, max_p_value)
+
         correlations_df = pd.DataFrame(list(correlations.items()), columns=['DataFrame', 'Max Correlation'])
-        correlations_df[['Predictor', 'Correlation']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
+        correlations_df[['Predictor', 'Correlation', 'P-value']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
         correlations_df = correlations_df.drop(columns=['Max Correlation'])
         print(correlations_df)
 
-    def calculate_correlations(self, grouping_column):
-        correlations = {}
-        for i, df in enumerate(self.dfs, start=1):
-            # Select only required columns
-            df = df[self.predictors + [self.outcome, grouping_column]]
-            # Group by grouping_column and calculate mean coordinates
-            df_grouped = df.groupby(grouping_column).mean()
-            # Calculate correlation with outcome for each predictor
-            corr_values = df_grouped.corr(method='spearman')[self.outcome].drop(self.outcome)
-            # Get predictor with highest absolute correlation
-            max_corr_predictor = corr_values.abs().idxmax()
-            max_corr_value = corr_values[max_corr_predictor]
-            correlations[f'DataFrame {i}'] = (max_corr_predictor, max_corr_value)
-        correlations_df = pd.DataFrame(list(correlations.items()), columns=['DataFrame', 'Max Correlation'])
-        correlations_df[['Predictor', 'Correlation']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
-        correlations_df = correlations_df.drop(columns=['Max Correlation'])
-        print(correlations_df)
 
     def plot_mean_true_vs_predicted(self):
         # Determine the layout of the subplots
@@ -266,6 +317,8 @@ class CrossValidation:
                 for pcs_ese_value in pcs_ese.unique():
                     mask = pcs_ese == pcs_ese_value
                     residuals = y_test[mask] - predictions[mask]
+                    # Standardize the residuals
+                    residuals /= residuals.std()
                     residuals_dict[df_name][pcs_ese_value] = residuals
                     fitted_dict[df_name][pcs_ese_value] = predictions[mask]
 
@@ -292,9 +345,9 @@ class CrossValidation:
                 fitted_values = fitted_dict[df_name][pcs_ese_value]
                 sns.scatterplot(x=fitted_values, y=residuals, ax=ax, color=color)
             ax.axhline(0, color='red', linestyle='--')  # Add a horizontal line at y=0
-            ax.set_title(f'Residuals vs Fitted for {df_name}')
+            ax.set_title(f'Standardized Residuals vs Fitted for {df_name}')
             ax.set_xlabel('Fitted values')
-            ax.set_ylabel('Residuals')
+            ax.set_ylabel('Standardized Residuals')
 
         plt.tight_layout()
         plt.show()
@@ -306,6 +359,7 @@ class CrossValidation:
         plt.axis('off')
 
         plt.show()
+    
     def plot_grouped_residuals_vs_fitted(self):
         num_dfs = len(self.predictions_dict)
         num_cols = 3
