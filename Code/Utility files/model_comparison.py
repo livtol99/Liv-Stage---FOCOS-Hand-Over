@@ -38,10 +38,10 @@ class CrossValidation:
 
         for i, df in enumerate(self.dfs, start=1):  # start=1 to make the index 1-based
             r2_full, max_coeff_predictor, max_coeff_value, aic, bic, results_wls = self.fit_wls(df, i)
-            rmse_mean, r2_mean = self.cross_validation(df, i)
+            CV_rmse_mean, CV_r2_mean = self.cross_validation(df, i)
 
             # Store the metrics for the current DataFrame
-            results_values[f'DataFrame {i}'] = (rmse_mean, r2_mean, r2_full, max_coeff_predictor, max_coeff_value, aic, bic)
+            results_values[f'DataFrame {i}'] = (CV_rmse_mean, CV_r2_mean, r2_full, max_coeff_predictor, max_coeff_value, aic, bic)
 
             # Store the results_wls object for the current DataFrame
             self.results_wls_dict[i] = results_wls
@@ -52,34 +52,32 @@ class CrossValidation:
         results_table = results_table.drop(columns=['Metrics'])
         print(results_table)
 
+        # Print the number of folds
+        print(f'Number of folds used: {self.n_splits}')
+
     def fit_wls(self, df, i):
+        
+        #Fit the OLS model to obtain weights
         X = sm.add_constant(df[self.predictors])  # Adding the intercept term
         y = df[self.outcome]
-        model = sm.OLS(y, X)
-        results = model.fit()
-
-        # Calculate residuals for the entire DataFrame
-        residuals = y - results.predict(X)
-
-        # Estimate weights as the inverse of the squared residuals for the entire DataFrame
-        weights = 1.0 / (residuals ** 2)
+        model_OLS = sm.OLS(y, X)
+        OLS_results = model_OLS.fit()
+        OLS_residuals = y - OLS_results.predict(X) #redisudals on entire df
+        weights = 1.0 / (OLS_residuals ** 2) #weights inverse of residuals of entire df
+        
 
         # Fit a WLS model on the entire DataFrame using the estimated weights
         model_wls = sm.WLS(y, X, weights=weights)
-        results_wls = model_wls.fit(cov_type='HC3')  # Using HC3 covariance type
-
-        # Get the p-values and coefficients from the model
+        results_wls = model_wls.fit()  
         p_values = results_wls.pvalues
-        coefficients = results_wls.params
 
-        # Filter for significant coefficients
+        # Obtain largest absoulte significant coefficients
+        coefficients = results_wls.params
         significant_coefficients = coefficients[p_values < 0.05]
 
-        # Drop 'const' from significant_coefficients
         if 'const' in significant_coefficients:
-            significant_coefficients = significant_coefficients.drop('const')
+            significant_coefficients = significant_coefficients.drop('const') #ignore intercept when finding the largest absolute coef
 
-        # Get the predictor with the highest absolute coefficient
         max_coeff_predictor = significant_coefficients.abs().idxmax()
         max_coeff_value = significant_coefficients[max_coeff_predictor]
 
@@ -101,28 +99,29 @@ class CrossValidation:
             print(results_wls.summary())
 
     def cross_validation(self, df, i):
+        CV_rmse_scores = [] 
+        CV_r2_scores = []  
         X = sm.add_constant(df[self.predictors])  # Adding the intercept term
         y = df[self.outcome]
-        model = sm.OLS(y, X)
-        results = model.fit()
 
-        # Calculate residuals for the entire DataFrame
-        residuals = y - results.predict(X)
-
-        # Estimate weights as the inverse of the squared residuals for the entire DataFrame
-        weights = 1.0 / (residuals ** 2)
-
-        rmse_scores = []  # Initialize the RMSE scores for each DataFrame
-        r2_scores = []  # Initialize the R2 scores for each DataFrame
-
-        for fold, (train_index, test_index) in enumerate(self.gkf.split(df[self.predictors], df[self.outcome], df['PCS_ESE']), start=1): #inner loop performs loops over all kfolds, fits the model, and calculates RMSE
+        for fold, (train_index, test_index) in enumerate(self.gkf.split(df[self.predictors], df[self.outcome], df['PCS_ESE']), start=1): 
+            
             # Split the data into training and test sets
             train, test = df.iloc[train_index], df.iloc[test_index]
 
-            # Fit a WLS model on the training set using the corresponding weights
+            # Fit an OLS model on the training set to estimate weights
             X_train = X.iloc[train_index]
             y_train = y.iloc[train_index]
-            weights_train = weights.iloc[train_index]
+            OLS_model = sm.OLS(y_train, X_train)
+            OLS_results = OLS_model.fit()
+
+            # Calculate residuals for the training set
+            residuals_train = y_train - OLS_results.predict(X_train)
+
+            # Estimate weights as the inverse of the squared residuals for the training set
+            weights_train = 1.0 / (residuals_train ** 2)
+
+            # Fit a WLS model on the training set using the estimated weights
             model_wls = sm.WLS(y_train, X_train, weights=weights_train)
             results_wls = model_wls.fit()
 
@@ -132,14 +131,14 @@ class CrossValidation:
             predictions = results_wls.predict(X_test)
             mse = mean_squared_error(y_test, predictions)
             rmse = np.sqrt(mse)  # Calculate RMSE
-            rmse_scores.append(rmse)
-            r2_scores.append(results_wls.rsquared)
+            CV_rmse_scores.append(rmse)
+            CV_r2_scores.append(results_wls.rsquared)
 
         # Calculate the mean RMSE and R2 scores for the current DataFrame
-        rmse_mean = np.mean(rmse_scores)
-        r2_mean = np.mean(r2_scores)
+        CV_rmse_mean = np.mean(CV_rmse_scores)
+        CV_r2_mean = np.mean(CV_r2_scores)
 
-        return rmse_mean, r2_mean
+        return CV_rmse_mean, CV_r2_mean
     
 
     
