@@ -1,56 +1,37 @@
 # Standard library imports
-from collections import defaultdict
 import csv
-from multiprocessing import Pool
+import os
 import re
+from collections import Counter, defaultdict
+from multiprocessing import Pool
 
 # Third party imports
 import emoji
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.util import ngrams
+import numpy as np
+import pandas as pd
 from joblib import Parallel, delayed
 from langdetect import detect, detect_langs, DetectorFactory, LangDetectException
-import pandas as pd
 import regex
+from scipy.stats import zscore
 from unidecode import unidecode
 import unicodedata
-import numpy as np
 
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.util import ngrams
-from collections import Counter
+import pandas as pd
+from langdetect import detect_langs, LangDetectException, DetectorFactory
+from joblib import Parallel, delayed
 
-import os
 
-# Local application imports
+# Local application/library specific imports
 import ftfy
 
 
-def print_lines(path, file, start_line, end_line):
-    """
-    Print lines from a file within a given range.
-    """
-    with open(f"{path}/{file}", 'r') as f:
-        print(f"Printing lines from file: {file}")
-        for i in range(end_line):
-            line = f.readline()
-            if i >= start_line:
-                print(line)
-
-def fileloader(path, file, req_cols, dtypes):
-    """
-    Load a CSV file into a pandas DataFrame.
-
-    Parameters:
-    path (str): The path to the directory containing the file.
-    file (str): The name of the file to load.
-    req_cols (list): The list of column names to load from the file.
-    dtypes (dict): A dictionary mapping column names to data types.
-
-    Returns:
-    pd.DataFrame: The loaded data.
-    """
-    return pd.read_csv(f"{path}/{file}", delimiter=',', quotechar='"', low_memory=False, usecols=req_cols, dtype=dtypes)
+# -------------------
+# Data inspection and stats functions
+# -------------------
 
 def summary_stats(df, print_dtypes=True):
     """
@@ -102,6 +83,127 @@ def compare_column_values(df1, df2, column):
     print(f"There are {missing_in_df1.nunique()} unique values in df1 that don't exist in df2.")
     print(f"There are {missing_in_df2.nunique()} unique values in df2 that don't exist in df1.")
 
+
+def calculate_language_percentages(df, column):
+    total_rows = df.shape[0]
+
+    french_rows = df[df[column] == 'fr'].shape[0]
+    english_rows = df[df[column] == 'en'].shape[0]
+    unknown_rows = df[df[column] == 'unknown'].shape[0]
+    NA_rows = df[df[column] == 'NA'].shape[0]
+    other_rows = total_rows - french_rows - english_rows - unknown_rows
+
+    french_percent = (french_rows / total_rows) * 100
+    english_percent = (english_rows / total_rows) * 100
+    unknown_percent = (unknown_rows / total_rows) * 100
+    other_percent = 100 - french_percent - english_percent - unknown_percent
+
+    print("French: ", french_rows, "(", french_percent, "%)")
+    print("English: ", english_rows, "(", english_percent, "%)")
+    print("Unknown: ", unknown_rows, "(", unknown_percent, "%)")
+    print("Other: ", other_rows, "(", other_percent, "%)")
+
+    nan_rows = df['description_cleantext'].isna().sum()
+    nan_percent = (nan_rows / total_rows) * 100
+    print("NaN in description_cleantext: ", nan_rows, "(", nan_percent, "%)")
+
+
+def calculate_percentage(result, total_rows):
+    percentage = (result / total_rows) * 100
+    percentage = round(percentage, 1)  # round to two decimal places
+    return str(percentage) + '%'  # add '%' sign
+
+def location_bio_stats(df):
+    total_rows = len(df)
+    
+    # Define a helper function to calculate and print a statistic
+    def print_stat(name, count):
+        percentage = calculate_percentage(count, total_rows)
+        print(f'{name}: {count} ({percentage})')
+    
+    # Calculate and print each statistic
+    print_stat('Unique locations', df['location'].nunique())
+    print_stat('Users with location data', df['location'].notna().sum())
+    print_stat('Users without location data', df['location'].isna().sum())
+    print_stat('Users with bios', df['description_cleantext'].notna().sum())
+    print_stat('Users without bios', df['description_cleantext'].isna().sum())
+    print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])
+
+def count_unique_labels(df):
+    df_unique = df.drop_duplicates(subset=['twitter_name', 'label'])
+    label_counts = df_unique['label'].value_counts()
+    return label_counts
+
+# -------------------
+# Data wrangling functions
+# -------------------
+def assign_country(location, city_names):
+    if isinstance(location, str):
+        for word in location.split():
+            if word in city_names:
+                return 'France'
+    return 'Other'
+
+
+def add_label(df_to_change, df_with_labels, label_column):
+    changed_df = df_to_change.merge(df_with_labels[['twitter_name', label_column]], on='twitter_name', how='left')
+    return changed_df
+
+
+def filter_add_jobs_coords(file_number, jobdf):
+    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
+    print(f"Used file path: {file_path}") 
+    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
+
+    # Filter df based on jobdf
+    comparison_ids = jobdf['follower_id'].unique()
+    df = df[df['follower_id'].isin(comparison_ids)]
+
+    # Merge
+    jobdf = jobdf.drop(columns=['0'])
+    df = pd.merge(df, jobdf, on='follower_id', how='left')
+
+    #Strip leading and trailing spaces from 'title' column
+    df['title'] = df['title'].str.strip()
+
+    # Check if directory exists, if not, create it
+    directory = "/home/livtollanes/NewData/job_title_coordinates"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Constructed job coord path: {directory}")
+    
+    # Save df to CSV file in directory
+    output_file_path = f"{directory}/m{file_number}_jobs_rowcoords.csv"
+    df.to_csv(output_file_path, sep = ',', index = False)
+
+    return df
+
+
+def merge_bio_coords(file_number, biodf):
+    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
+    print(f"Used file path: {file_path}") 
+    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
+
+    # Filter df based on biodf
+    comparison_ids = biodf['follower_id'].unique()
+    df = df[df['follower_id'].isin(comparison_ids)]
+
+    # Select only the specified columns from biodf
+    biodf = biodf[['follower_id', 'description_cleantext', 'language', 'country', 'screen_name']]
+
+    # Merge
+    df = pd.merge(df, biodf, on='follower_id', how='left')
+
+    # Save df to CSV file in the same directory but with a different name
+    output_file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_full.csv"
+    df.to_csv(output_file_path, sep = ',', index = False)
+
+    return df
+
+
+# -------------------
+# Data filtering functions
+# -------------------
 
 def filter_followers(df, follower_id_column, min_brands):
     """
@@ -201,27 +303,41 @@ def filter_by_tweets_and_followers(df, min_followers, min_tweets):
 
     return df_filtered
 
+def min_french_followers(df, min_followers):
+    # Filter rows with 'french_followers' less than min_followers
+    filtered_df = df[df['french_followers'] >= min_followers]
 
-def print_lines(path, file, start_line, end_line):
-    """
-    Print lines from a file within a given range.
-    """
-    with open(f"{path}/{file}", 'r') as f:
-        print(f"Printing lines from file: {file}")
-        for i in range(end_line):
-            line = f.readline()
-            if i >= start_line:
-                print(line)
+    # Find the rows that were removed
+    removed_rows = df.loc[~df.index.isin(filtered_df.index)]
+
+    # Get the 'twitter_name' and 'french_followers' columns of the removed rows
+    removed_info = removed_rows[['twitter_name', 'marker_followers','french_followers', 'type']]
+
+    # Remove duplicate 'twitter_name' rows
+    removed_info = removed_info.drop_duplicates(subset='twitter_name')
+
+    # Print the total number of brands removed
+    print(f"Total brands removed: {removed_info['twitter_name'].nunique()}")
+
+    return filtered_df, removed_info
 
 
+def remove_outliers(df, value_col, z_threshold):
+    original_len = len(df)
+    df['z_score'] = zscore(df[value_col])
+    df = df[df['z_score'].abs() <= z_threshold]
+    print(f"Removed {original_len - len(df)} rows.")
+    return df
+
+# -------------------
+# Bio processing, language detection, and other text-related functions
+# -------------------
 
 def remove_emoji(string):
     return emoji.demojize(string, delimiters=("<EMOJI:", ">"))
 
 def remove_emoji_descriptions(string):
     return re.sub(r'<EMOJI:.*?>', '', string)
-
-
 
 
 def process_description(df, column):
@@ -250,8 +366,6 @@ def process_description(df, column):
 
     df.loc[:, column + '_cleantext'] = df[column].apply(process_bio)
     return df
-
-
 
 def detect_language(bio):
     """
@@ -291,172 +405,18 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
     return df
 
-# def get_language(text):
-#     if pd.isnull(text):
-#         return 'unknown'
-#     identifier = gcld3.NNetLanguageIdentifier(min_num_bytes=0, max_num_bytes=200)
-#     result = identifier.FindLanguage(text)
-#     return result.language
-
-# def detect_language_gcld3(df, column, n_jobs=-1):
-#     if column not in df.columns:
-#         return df
-
-#     df['language'] = Parallel(n_jobs=n_jobs)(delayed(get_language)(text) for text in df[column])
-
-#     return df
-
-
-def split_by_language(df, language):
-    """
-    Split a DataFrame by language.
-
-    Parameters:
-    df (DataFrame): The DataFrame to split.
-    language (str): The language to split by.
-
-    Returns:
-    DataFrame, DataFrame: The DataFrame with the specified language, and the DataFrame with all other languages.
-    """
-    df_language = df[df['language'] == language]
-    df_other = df[df['language'] != language]
-    return df_language, df_other
-
-
-def calculate_percentage(result, total_rows):
-    percentage = (result / total_rows) * 100
-    percentage = round(percentage, 1)  # round to two decimal places
-    return str(percentage) + '%'  # add '%' sign
-
-# Define a function to assign country
-def assign_country(location, city_names):
-    if isinstance(location, str):
-        for word in location.split():
-            if word in city_names:
-                return 'France'
-    return 'Other'
-
-def location_bio_stats(df):
-    total_rows = len(df)
-    
-    # Define a helper function to calculate and print a statistic
-    def print_stat(name, count):
-        percentage = calculate_percentage(count, total_rows)
-        print(f'{name}: {count} ({percentage})')
-    
-    # Calculate and print each statistic
-    print_stat('Unique locations', df['location'].nunique())
-    print_stat('Users with location data', df['location'].notna().sum())
-    print_stat('Users without location data', df['location'].isna().sum())
-    print_stat('Users with bios', df['description_cleantext'].notna().sum())
-    print_stat('Users without bios', df['description_cleantext'].isna().sum())
-    print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])
-
-def min_french_followers(df, min_followers):
-    # Filter rows with 'french_followers' less than min_followers
-    filtered_df = df[df['french_followers'] >= min_followers]
-
-    # Find the rows that were removed
-    removed_rows = df.loc[~df.index.isin(filtered_df.index)]
-
-    # Get the 'twitter_name' and 'french_followers' columns of the removed rows
-    removed_info = removed_rows[['twitter_name', 'marker_followers','french_followers', 'type']]
-
-    # Remove duplicate 'twitter_name' rows
-    removed_info = removed_info.drop_duplicates(subset='twitter_name')
-
-    # Print the total number of brands removed
-    print(f"Total brands removed: {removed_info['twitter_name'].nunique()}")
-
-    return filtered_df, removed_info
-
-
-def check_types(df, group_column, count_column):
-    # Check if the group column exists in the DataFrame
-    if group_column in df.columns:
-        # Calculate the number of unique values in the group column
-        unique_values = df[group_column].nunique()
-        print(f"Number of unique values in '{group_column}': {unique_values}\n")
-
-        # Group by the group column and calculate the min and max of the count column
-        group = df.groupby(group_column)[count_column].agg(['min', 'max'])
-
-        # Print the min and max for each group
-        for index, row in group.iterrows():
-            print(f"{group_column} = {index}:\n"
-                  f"  Min '{count_column}': {row['min']}\n"
-                  f"  Max '{count_column}': {row['max']}\n")
-    else:
-        print(f"'{group_column}' does not exist in the DataFrame.")
-
-
-def add_label(df_to_change, df_with_labels, label_column):
-    changed_df = df_to_change.merge(df_with_labels[['twitter_name', label_column]], on='twitter_name', how='left')
-    return changed_df
-
-def count_unique_labels(df):
-    df_unique = df.drop_duplicates(subset=['twitter_name', 'label'])
-    label_counts = df_unique['label'].value_counts()
-    return label_counts
-
-
-def create_marker_projection(df, unit_normal, dimensions):
-    """
-    This function creates a projection of the data onto a hyperplane defined by a unit normal.
-
-    Parameters:
-    df (DataFrame): The input dataframe.
-    unit_normal (list): The coordinates for the hyperplane unit normal.
-    dimensions (list): The column names in the dataframe to be used for the dimensions of the projection.
-
-    Returns:
-    DataFrame: The dataframe with the added projection.
-    """
-    # Make the unit normal into an array to facilitate operations
-    unit_normal = np.array(unit_normal)
-
-    # Select the columns corresponding to the dimensions
-    marker_coordinates = df[dimensions].values
-
-    # Perform the dot product operation between the coordinates and the hyperplane unit normal (our new dimension)
-    projections = np.dot(marker_coordinates, unit_normal)
-
-    # Add the projections to your DataFrame
-    df['projection'] = projections
-
-    return df
-
-    return df
-
-def create_user_projection(df, unit_normal, dimensions):
-    """
-    This function creates a projection of the data onto a hyperplane defined by a unit normal.
-    It adds 'follower_id' instead of 'twitter_name'.
-
-    Parameters:
-    df (DataFrame): The input dataframe.
-    unit_normal (list): The coordinates for the hyperplane unit normal.
-    dimensions (list): The column names in the dataframe to be used for the dimensions of the projection.
-
-    Returns:
-    DataFrame: The dataframe with the added projection and 'follower_id'.
-    """
-    # Make the unit normal into an array to facilitate operations
-    unit_normal = np.array(unit_normal)
-
-    # Select the columns corresponding to the dimensions
-    user_coordinates = df[dimensions].values
-
-    # Perform the dot product operation between the coordinates and the hyperplane unit normal (our new dimension)
-    projections = np.dot(user_coordinates, unit_normal)
-
-    # Add the projections to your DataFrame
-    df['projection'] = projections
-
-    # Reorder the DataFrame based on the 'projection' column from highest to lowest
-    df = df.sort_values(by='projection', ascending=False)
-
-    return df
+def process_text(text, stop_words):
+    # Remove URLs
+    text = re.sub(r'http\S+|www.\S+', '', text)
+    # Replace hashtags and mentions with just the word
+    text = re.sub(r'[@#](\w+)', r'\1', text)
+    # Tokenize the string into words
+    words = nltk.word_tokenize(text)
+    # Remove punctuation and convert to lower case
+    words = [word.lower() for word in words if word.isalpha()]
+    # Remove French stopwords
+    words = [word for word in words if word not in stop_words]
+    return words
 
 
 def write_ngrams_to_csv(ngrams, filename):
@@ -491,19 +451,6 @@ def get_ngram_freq(text, n):
     return ngram_freq
 
 
-def process_text(text, stop_words):
-    # Remove URLs
-    text = re.sub(r'http\S+|www.\S+', '', text)
-    # Replace hashtags and mentions with just the word
-    text = re.sub(r'[@#](\w+)', r'\1', text)
-    # Tokenize the string into words
-    words = nltk.word_tokenize(text)
-    # Remove punctuation and convert to lower case
-    words = [word.lower() for word in words if word.isalpha()]
-    # Remove French stopwords
-    words = [word for word in words if word not in stop_words]
-    return words
-
 def get_ngrams(words, n):
     # Create ngrams for all numbers up to and including n
     ngram_list = []
@@ -530,9 +477,6 @@ def tokenize_bios(df, stop_words):
     
     return df
 
-def calculate_common_ngrams(set1, set2):
-    return len(set1.intersection(set2))
-
 
 def find_all_matches2(bio_ngrams, income_df):
     overlap = income_df['ngrams'].apply(lambda x: any(i in x for i in bio_ngrams if len(i.split()) > 1))
@@ -552,55 +496,9 @@ def preprocess_text(text, nlp):
     return tokens
 
 
-def filter_add_jobs_coords(file_number, jobdf):
-    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
-    print(f"Used file path: {file_path}") 
-    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
-
-    # Filter df based on jobdf
-    comparison_ids = jobdf['follower_id'].unique()
-    df = df[df['follower_id'].isin(comparison_ids)]
-
-    # Merge
-    jobdf = jobdf.drop(columns=['0'])
-    df = pd.merge(df, jobdf, on='follower_id', how='left')
-
-    #Strip leading and trailing spaces from 'title' column
-    df['title'] = df['title'].str.strip()
-
-    # Check if directory exists, if not, create it
-    directory = "/home/livtollanes/NewData/job_title_coordinates"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-        print(f"Constructed job coord path: {directory}")
-    
-    # Save df to CSV file in directory
-    output_file_path = f"{directory}/m{file_number}_jobs_rowcoords.csv"
-    df.to_csv(output_file_path, sep = ',', index = False)
-
-    return df
-
-
-def merge_bio_coords(file_number, biodf):
-    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
-    print(f"Used file path: {file_path}") 
-    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
-
-    # Filter df based on biodf
-    comparison_ids = biodf['follower_id'].unique()
-    df = df[df['follower_id'].isin(comparison_ids)]
-
-    # Select only the specified columns from biodf
-    biodf = biodf[['follower_id', 'description_cleantext', 'language', 'country', 'screen_name']]
-
-    # Merge
-    df = pd.merge(df, biodf, on='follower_id', how='left')
-
-    # Save df to CSV file in the same directory but with a different name
-    output_file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_full.csv"
-    df.to_csv(output_file_path, sep = ',', index = False)
-
-    return df
+# -------------------
+# File loading functions
+# -------------------
 
 
 def load_all_row_coords_files(n):
@@ -615,7 +513,6 @@ def load_all_row_coords_files(n):
         files.append(df)
 
     return files
-
 
 def load_all_column_coords_files(n):
     files = []  # list to store all dataframes
@@ -645,12 +542,3 @@ def load_CA_model_files(n):
         files.append(df)
 
     return files
-
-from scipy.stats import zscore
-
-def remove_outliers(df, value_col, z_threshold):
-    original_len = len(df)
-    df['z_score'] = zscore(df[value_col])
-    df = df[df['z_score'].abs() <= z_threshold]
-    print(f"Removed {original_len - len(df)} rows.")
-    return df

@@ -4,6 +4,7 @@ import seaborn as sn
 from mpl_toolkits.mplot3d import Axes3D
 from corg import BenchmarkDimension, DiscoverDimension
 from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
 
 class CorgPipeline:
@@ -54,6 +55,7 @@ class CorgPipeline:
 
     def drop_na(self):
         self.df = self.df.dropna(subset=['label'])
+    
 
     def func1(self):
         self.drop_na()
@@ -133,3 +135,18 @@ class CorgPipeline:
         #self.plot_discover_model()
         self.plot_discover_model_3d()
         self.func2_metrics()
+    
+    def create_marker_projection(self, unit_normal, dimensions):
+        unit_normal = np.array(unit_normal)
+        marker_coordinates = self.df[dimensions].values
+        projections = np.dot(marker_coordinates, unit_normal)
+        self.df['projection'] = projections
+        return self.df
+    
+    def create_user_projection(self, unit_normal, dimensions):
+        unit_normal = np.array(unit_normal)
+        user_coordinates = self.df[dimensions].values
+        projections = np.dot(user_coordinates, unit_normal)
+        self.df['projection'] = projections
+        self.df = self.df.sort_values(by='projection', ascending=False)
+        return self.df

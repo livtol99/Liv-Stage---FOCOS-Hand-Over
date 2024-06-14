@@ -307,13 +307,17 @@ class PipelineCorAnalysis:
         dimensions = range(1, len(percentage_of_variance) + 1)
 
         # Create the plot
-        plt.figure(figsize=(10, 7))
-        plt.bar(dimensions, percentage_of_variance)
-        plt.xlabel('Dimensions')
-        plt.ylabel('Inertia (%)')  
+        fig, ax = plt.subplots(figsize=(10, 7))
+        ax.bar(dimensions, percentage_of_variance)
+        ax.set_xlabel('Dimensions')
+        ax.set_ylabel('Inertia (%)')  
+
+        # Remove the upper and rightmost frame
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
 
         # Include subset_name in the title
-        plt.title(f'Percentage of Inertia Explained per Dimension for {self.subset_name}')
+        ax.set_title(f'Percentage of Inertia Explained per Dimension for {self.subset_name}')
 
         plt.show()
 
