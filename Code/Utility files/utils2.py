@@ -321,13 +321,6 @@ def min_french_followers(df, min_followers):
     return filtered_df, removed_info
 
 
-def remove_outliers(df, value_col, z_threshold):
-    original_len = len(df)
-    df['z_score'] = zscore(df[value_col])
-    df = df[df['z_score'].abs() <= z_threshold]
-    print(f"Removed {original_len - len(df)} rows.")
-    return df
-
 # -------------------
 # Bio processing, language detection, and other text-related functions
 # -------------------
@@ -366,7 +359,7 @@ def process_description(df, column):
     df.loc[:, column + '_cleantext'] = df[column].apply(process_bio)
     return df
 
-def detect_language(bio):
+def _detect_language(bio):
     """
     Detect the language of a string using the langdetect library.
 
@@ -387,7 +380,6 @@ def detect_language(bio):
         return 'unknown'
 
 def add_and_detect_language(df, column, seed=3, n_jobs=-1):
-
     """
     Add a language column to a DataFrame and detect the language for each row.
 
@@ -401,10 +393,10 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     DataFrame: The DataFrame with the added language column.
     """
     DetectorFactory.seed = seed
-    df['language'] = Parallel(n_jobs=n_jobs)(delayed(detect_language)(bio) for bio in df[column])
+    df['language'] = Parallel(n_jobs=n_jobs)(delayed(_detect_language)(bio) for bio in df[column])
     return df
 
-def process_text(text, stop_words):
+def _process_text(text, stop_words):
     # Remove URLs
     text = re.sub(r'http\S+|www.\S+', '', text)
     # Replace hashtags and mentions with just the word
@@ -465,7 +457,7 @@ def separate_ngrams(ngrams):
 
 def tokenize_bios(df, stop_words):
     # Tokenize the bios
-    df['description_cleantext_tokens'] = df['description_cleantext'].apply(lambda x: process_text(x, stop_words))
+    df['description_cleantext_tokens'] = df['description_cleantext'].apply(lambda x: _process_text(x, stop_words))
 
     # Initialize the total_n_grams column as an empty list
     df['total_n_grams'] = [[] for _ in range(len(df))]
