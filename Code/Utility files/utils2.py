@@ -20,11 +20,6 @@ from scipy.stats import zscore
 from unidecode import unidecode
 import unicodedata
 
-import pandas as pd
-from langdetect import detect_langs, LangDetectException, DetectorFactory
-from joblib import Parallel, delayed
-
-
 # Local application/library specific imports
 import ftfy
 
@@ -34,20 +29,18 @@ import ftfy
 # -------------------
 
 def summary_stats(df, print_dtypes=True):
-    """
-    Prints summary statistics for a given DataFrame.
+   """
+    Prints summary statistics for a DataFrame.
 
     Parameters:
-    df (pandas.DataFrame): The DataFrame for which to print summary statistics.
-    print_dtypes (bool, optional): Whether to print the data types of the DataFrame's columns. Defaults to True.
+    df (pandas.DataFrame): DataFrame for summary statistics.
+    print_dtypes (bool, optional): If True, prints column data types. Defaults to True.
 
-    The function prints the following:
-    - The shape of the DataFrame.
-    - The names of the DataFrame's columns.
-    - The data types of the DataFrame's columns (if print_dtypes is True).
-    - The number of unique and duplicate values in the 'follower_id', 'id', and 'marker_id' columns (if they exist in the DataFrame).
-    - The number of missing values in each column.
-    - The number of duplicate rows in the DataFrame.
+    Prints:
+    - DataFrame shape, column names, and data types (optional).
+    - Unique and duplicate values for 'follower_id', 'id', and 'marker_id' columns (if present).
+    - Missing values per column.
+    - Total duplicate rows.
     """
     print("Shape of DataFrame: ", df.shape)
     print("\nColumns in DataFrame: ", df.columns.tolist())
@@ -75,7 +68,12 @@ def compare_column_values(df1, df2, column):
     Compare the unique values of a specific column between two pandas DataFrames.
 
     Parameters:
+    df1, df2 (pandas.DataFrame): The DataFrames to compare.
     column (str): The column name to compare.
+
+    Prints:
+    - The number of unique values in df1 that don't exist in df2.
+    - The number of unique values in df2 that don't exist in df1.
     """
     missing_in_df1 = df1.loc[~df1[column].isin(df2[column]), column]
     missing_in_df2 = df2.loc[~df2[column].isin(df1[column]), column]
@@ -85,6 +83,17 @@ def compare_column_values(df1, df2, column):
 
 
 def calculate_language_percentages(df, column):
+    """
+    Calculate and print the percentage of each language in a specific column of a DataFrame.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame to analyze.
+    column (str): The column name to analyze.
+
+    Prints:
+    - The number and percentage of rows for each language ('fr', 'en', 'unknown', 'NA', and others).
+    - The number and percentage of NaN values in the 'description_cleantext' column.
+    """
     total_rows = df.shape[0]
 
     french_rows = df[df[column] == 'fr'].shape[0]
@@ -109,11 +118,34 @@ def calculate_language_percentages(df, column):
 
 
 def calculate_percentage(result, total_rows):
+    """
+    Calculate the percentage of a part (result) of a total.
+
+    Parameters:
+    result (int): The part of the total.
+    total_rows (int): The total.
+
+    Returns:
+    str: The percentage as a string with a '%' sign.
+    """
+
     percentage = (result / total_rows) * 100
     percentage = round(percentage, 1)  # round to two decimal places
     return str(percentage) + '%'  # add '%' sign
 
 def location_bio_stats(df):
+    """
+    Calculate and print statistics about location and bio data in a DataFrame.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame to analyze.
+
+    Prints:
+    - The number and percentage of unique locations.
+    - The number and percentage of users with and without location data.
+    - The number and percentage of users with and without bios.
+    - The number and percentage of users with both location and bios.
+    """
     total_rows = len(df)
     
     # Define a helper function to calculate and print a statistic
@@ -129,11 +161,6 @@ def location_bio_stats(df):
     print_stat('Users without bios', df['description_cleantext'].isna().sum())
     print_stat('Users with both location and bios', df[(df['location'].notna()) & (df['description_cleantext'].notna())].shape[0])
 
-def count_unique_labels(df):
-    df_unique = df.drop_duplicates(subset=['twitter_name', 'label'])
-    label_counts = df_unique['label'].value_counts()
-    return label_counts
-
 # -------------------
 # Data wrangling functions
 # -------------------
@@ -143,12 +170,6 @@ def assign_country(location, city_names):
             if word in city_names:
                 return 'France'
     return 'Other'
-
-
-def add_label(df_to_change, df_with_labels, label_column):
-    changed_df = df_to_change.merge(df_with_labels[['twitter_name', label_column]], on='twitter_name', how='left')
-    return changed_df
-
 
 def filter_add_jobs_coords(file_number, jobdf):
     file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
@@ -174,28 +195,6 @@ def filter_add_jobs_coords(file_number, jobdf):
     
     # Save df to CSV file in directory
     output_file_path = f"{directory}/m{file_number}_jobs_rowcoords.csv"
-    df.to_csv(output_file_path, sep = ',', index = False)
-
-    return df
-
-
-def merge_bio_coords(file_number, biodf):
-    file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
-    print(f"Used file path: {file_path}") 
-    df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
-
-    # Filter df based on biodf
-    comparison_ids = biodf['follower_id'].unique()
-    df = df[df['follower_id'].isin(comparison_ids)]
-
-    # Select only the specified columns from biodf
-    biodf = biodf[['follower_id', 'description_cleantext', 'language', 'country', 'screen_name']]
-
-    # Merge
-    df = pd.merge(df, biodf, on='follower_id', how='left')
-
-    # Save df to CSV file in the same directory but with a different name
-    output_file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_full.csv"
     df.to_csv(output_file_path, sep = ',', index = False)
 
     return df
@@ -499,8 +498,6 @@ def preprocess_text(text, nlp):
 # -------------------
 # File loading functions
 # -------------------
-
-
 def load_all_row_coords_files(n):
     files = []  # list to store all dataframes
 
