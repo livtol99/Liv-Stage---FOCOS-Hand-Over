@@ -29,7 +29,7 @@ import ftfy
 # -------------------
 
 def summary_stats(df, print_dtypes=True):
-   """
+    """
     Prints summary statistics for a DataFrame.
 
     Parameters:
@@ -62,7 +62,6 @@ def summary_stats(df, print_dtypes=True):
         print(f"'{col}': ", df[col].isnull().sum())
     
     print("\nNumber of duplicate rows: ", df.duplicated().sum())
-
 def compare_column_values(df1, df2, column):
     """
     Compare the unique values of a specific column between two pandas DataFrames.
