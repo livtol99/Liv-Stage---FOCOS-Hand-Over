@@ -29,6 +29,9 @@ class PipelineCorAnalysis:
         self.subset_name = data_subset_name  
 
     def get_edgelist_name(self, data_subset_name):
+        """
+        Returns the edge list name identical to `data_subset_name`.
+        """
         # Extract the name from the DataFrame
         return data_subset_name
 
@@ -214,6 +217,7 @@ class PipelineCorAnalysis:
         plt.axis('off')
 
         plt.show()
+    
     def calculate_communities(self):
         if not hasattr(self, 'G2_markers'):
             self.marker_projection()
