@@ -22,53 +22,48 @@ import statsmodels.api as sm
 
 class CrossValidation:
     """
-    A class used to perform cross-validation and weighted least squares (WLS) regression on multiple DataFrames.
-
-    Attributes
-    ----------
-    dfs : list of pd.DataFrame
-        List of DataFrames to perform analysis on.
-    predictors : list of str
-        List of column names to be used as predictors.
-    outcome : str
-        Column name of the outcome variable.
-    n_splits : int, optional
-        Number of splits for GroupKFold cross-validation (default is 10).
-    gkf : GroupKFold
-        GroupKFold object for cross-validation.
-    results_values : dict
-        Dictionary to store results values.
-    summary_outputs : list
-        List to store summary outputs.
-    residuals_dict : dict
-        Dictionary to store residuals for each DataFrame.
-
-    Methods
-    -------
-    fit()
-        Fits WLS models on the provided DataFrames and performs cross-validation.
-    fit_wls(df, i)
-        Fits a WLS model to a DataFrame and calculates metrics.
-    print_summaries()
-        Prints the summary of WLS models for each DataFrame.
-    cross_validation(df, i)
-        Performs cross-validation on a DataFrame and returns mean RMSE and R2 scores.
-    assess_normality()
-        Assesses normality of residuals using Q-Q plots and Shapiro-Wilk tests.
-    plot_fitted_vs_raw_data()
-        Plots fitted values vs raw data for each DataFrame.
-    plot_residuals()
-        Plots the distribution of residuals for each fold of cross-validation.
-    calculate_correlations_median(grouping_column)
-        Calculates Spearman correlation between predictors and outcome, grouped by a specified column.
-    plot_mean_true_vs_predicted()
-        Plots mean true vs mean predicted values for each DataFrame.
-    plot_residuals_vs_fitted()
-        Plots standardized residuals vs fitted values for each DataFrame.
-    plot_grouped_residuals_vs_fitted()
-        Plots mean residuals vs mean fitted values for each DataFrame.
-    """
+    Class to perform cross-validation on a list of DataFrames using Weighted Least Squares (WLS) regression.
     
+    The class allows fitting WLS models, performing cross-validation, and calculating various metrics 
+    such as RMSE, R2, AIC, BIC, and correlation coefficients. It also supports plotting residuals 
+    and summarizing the results.
+
+    Attributes:
+    ----------
+    dfs : list
+        A list of pandas DataFrames to be used for cross-validation.
+    predictors : list
+        A list of column names to be used as predictors in the regression models.
+    outcome : str
+        The column name of the outcome variable.
+    n_splits : int, optional
+        The number of splits for cross-validation, default is 10.
+    gkf : GroupKFold
+        GroupKFold object for performing grouped cross-validation.
+    results_values : dict
+        Dictionary to store results metrics for each DataFrame.
+    summary_outputs : list
+        List to store summary outputs of the WLS models.
+    residuals_dict : dict
+        Dictionary to store residuals for each fold in cross-validation.
+    predictions_dict : dict
+        Dictionary to store predictions for each fold in cross-validation.
+
+    Methods:
+    -------
+    fit():
+        Fits WLS models on the DataFrames and performs cross-validation to calculate metrics.
+    fit_wls(df, i):
+        Fits a WLS model to the specified DataFrame and returns various metrics and the model results.
+    print_summaries():
+        Prints the summary output for the fitted WLS models.
+    cross_validation(df, i):
+        Performs cross-validation on the specified DataFrame and returns mean RMSE and R2 scores.
+    plot_residuals():
+        Plots the distribution of residuals for each fold in cross-validation.
+    calculate_correlations_median(grouping_column):
+        Calculates the correlation between predictors and the outcome, grouped by the specified column.
+    """
     def __init__(self, dfs, predictors, outcome, n_splits=10):
         self.dfs = dfs
         self.predictors = predictors
@@ -78,6 +73,7 @@ class CrossValidation:
         self.results_values = {}
         self.summary_outputs = []
         self.residuals_dict = {}
+        self.predictions_dict = {}
 
 
     def fit(self):
@@ -102,6 +98,7 @@ class CrossValidation:
 
         # Print the number of folds
         print(f'Number of folds used: {self.n_splits}')
+
 
     def fit_wls(self, df, i):
         
@@ -151,9 +148,9 @@ class CrossValidation:
         CV_r2_scores = []  
         X = sm.add_constant(df[self.predictors])  # Adding the intercept term
         y = df[self.outcome]
+        self.predictions_dict = {}
 
-        for fold, (train_index, test_index) in enumerate(self.gkf.split(df[self.predictors], df[self.outcome], df['PCS_ESE']), start=1): 
-            
+        for fold, (train_index, test_index) in enumerate(self.gkf.split(df[self.predictors], df[self.outcome], df['PCS_ESE']), start=1):
             # Split the data into training and test sets
             train, test = df.iloc[train_index], df.iloc[test_index]
 
@@ -182,105 +179,52 @@ class CrossValidation:
             CV_rmse_scores.append(rmse)
             CV_r2_scores.append(results_wls.rsquared)
 
+            # Store residuals and predictions for this fold
+            residuals_fold = y_test - predictions
+            self.residuals_dict[f'DataFrame {i}_Fold {fold}'] = residuals_fold
+            if f'DataFrame {i}' not in self.predictions_dict:
+                self.predictions_dict[f'DataFrame {i}'] = []
+            self.predictions_dict[f'DataFrame {i}'].append((y_test, predictions, df.loc[test_index, 'PCS_ESE']))
+
         # Calculate the mean RMSE and R2 scores for the current DataFrame
         CV_rmse_mean = np.mean(CV_rmse_scores)
         CV_r2_mean = np.mean(CV_r2_scores)
 
         return CV_rmse_mean, CV_r2_mean
-    
-    def assess_normality(self):
-        for i, df in enumerate(self.dfs, start=1):  # start=1 to make the index 1-based
-            # Fit a WLS model on the entire DataFrame
-            X = sm.add_constant(df[self.predictors])  # Adding the intercept term
-            y = df[self.outcome]
-            model = sm.OLS(y, X)
-            results = model.fit()
 
-            # Calculate residuals
-            residuals = y - results.predict(X)
 
-            # Plot a Q-Q plot of the residuals
-            sm.qqplot(residuals, line='s')
-            plt.title(f'Q-Q Plot of Residuals for DataFrame {i}')
-            plt.show()
-
-            # Perform a Shapiro-Wilk test on the residuals
-            shapiro_test = shapiro(residuals)
-            print(f'Shapiro-Wilk Test for DataFrame {i}: W={shapiro_test[0]}, p={shapiro_test[1]}')
-    
-
-    def plot_fitted_vs_raw_data(self):
-        num_dfs = len(self.dfs)
-        num_cols = 3
-        num_rows = math.ceil(num_dfs / num_cols)
-
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
-        axes = axes.flatten()
-        for ax in axes[num_dfs:]:
-            fig.delaxes(ax)
-
-        for ax, df in zip(axes, self.dfs):
-            df = df.copy()
-            df['color'] = df['PCS_ESE'].str[0].astype(str)  # Ungrouped data
-            grouped_df = df.groupby('PCS_ESE')[self.predictors + [self.outcome]].mean()  # Grouped data
-            grouped_df['color'] = grouped_df.index.str[0].astype(str)
-
-            # Fit a WLS model on the entire DataFrame
-            X = sm.add_constant(grouped_df[self.predictors])  # Adding the intercept term
-            y = grouped_df[self.outcome]
-            model = sm.OLS(y, X)
-            results = model.fit()
-
-            # Calculate residuals
-            residuals = y - results.predict(X)
-
-            # Estimate weights as the inverse of the squared residuals
-            weights = 1.0 / (residuals ** 2)
-
-            # Fit a WLS model using the estimated weights
-            model_wls = sm.WLS(y, X, weights=weights)
-            results_wls = model_wls.fit()
-
-            # Get the predicted values
-            y_pred = results_wls.predict(X)
-
-            # Plot raw data
-            for color in df['color'].unique():
-                ax.scatter(df.loc[df['color'] == color, self.predictors[0]], 
-                           df.loc[df['color'] == color, self.outcome], 
-                           label=f'PCS_ESE Class {color}')
-
-            # Plot fitted line
-            ax.plot(grouped_df[self.predictors[0]], y_pred, color='red', label='Fitted line')
-            ax.set_title(f'Fitted vs Raw Data')
-            ax.set_xlabel('Predictors')
-            ax.set_ylabel(self.outcome)
-            ax.legend()
-
-        plt.tight_layout()
-        plt.show()
 
     def plot_residuals(self):
-        num_dfs = len(self.residuals_dict)
+        if not self.residuals_dict:
+            raise ValueError("residuals_dict is empty or not properly populated.")
+
+        # Aggregate residuals by model
+        model_residuals = {}
+        for key, residuals in self.residuals_dict.items():
+            model_name = key.split('_')[0]  # Assuming the model name is the first part of the key
+            if model_name not in model_residuals:
+                model_residuals[model_name] = residuals
+            else:
+                model_residuals[model_name] = pd.concat([model_residuals[model_name], residuals])
+
+        num_models = len(model_residuals)
         num_cols = 3
-        num_rows = math.ceil(num_dfs / num_cols)
+        num_rows = math.ceil(num_models / num_cols)
 
         fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
         axes = axes.flatten()
-        for ax in axes[num_dfs:]:
+        for ax in axes[num_models:]:
             fig.delaxes(ax)
 
-        for ax, (df_fold, residuals) in zip(axes, self.residuals_dict.items()):
+        for ax, (model_name, residuals) in zip(axes, model_residuals.items()):
             sns.histplot(residuals, kde=True, ax=ax)
-            ax.set_title(f'Residuals Distribution for {df_fold}')
+            ax.set_title(f'Residuals Distribution for {model_name}')
             ax.set_xlabel('Residuals')
             ax.set_ylabel('Frequency')
 
         plt.tight_layout()
         plt.show()
     
-    from scipy.stats import spearmanr
-
     def calculate_correlations_median(self, grouping_column):
         correlations = {}
         for i, df in enumerate(self.dfs, start=1):
@@ -310,213 +254,3 @@ class CrossValidation:
         correlations_df[['Predictor', 'Correlation', 'P-value']] = pd.DataFrame(correlations_df['Max Correlation'].tolist(), index=correlations_df.index)
         correlations_df = correlations_df.drop(columns=['Max Correlation'])
         print(correlations_df)
-
-
-    def plot_mean_true_vs_predicted(self):
-        # Determine the layout of the subplots
-        num_dfs = len(self.predictions_dict)
-        num_cols = 3  # Change this to 3 for a 3x3 grid
-        num_rows = math.ceil(num_dfs / num_cols)
-
-        # Initialize a dictionary to store the mean predictions and true values for each PCS_ESE group
-        mean_values_dict = {}
-
-        # Calculate the mean predicted and true values for each PCS_ESE group
-        for df_name, values in self.predictions_dict.items():
-            mean_values_dict[df_name] = {}
-            for y_test, predictions, pcs_ese in values:  # Expect three values here
-                for pcs_ese_value in pcs_ese.unique():
-                    mask = pcs_ese == pcs_ese_value
-                    mean_values_dict[df_name][pcs_ese_value] = (predictions[mask].mean(), y_test[mask].mean())
-
-        # Get all unique PCS_ESE values from all dataframes
-        all_pcs_ese_values = set()
-        for _, values in self.predictions_dict.items():
-            for y_test, predictions, pcs_ese in values:
-                all_pcs_ese_values.update(pcs_ese.unique())
-
-        # Sort the PCS_ESE values
-        all_pcs_ese_values = sorted(all_pcs_ese_values)
-
-        # Create a color palette
-        color_palette = sns.color_palette('hsv', len(all_pcs_ese_values))
-
-        # Map each PCS_ESE group to a color
-        color_map = {pcs_ese_value: color for pcs_ese_value, color in zip(all_pcs_ese_values, color_palette)}
-
-        # Create a figure and a grid of subplots
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
-
-        # Flatten the axes array and remove extra subplots
-        axes = axes.flatten()
-        for ax in axes[num_dfs:]:
-            fig.delaxes(ax)
-
-        # Plot the mean true vs mean predicted values for each PCS_ESE group
-        for ax, (df_name, pcs_ese_values) in zip(axes, mean_values_dict.items()):
-            for pcs_ese_value, (mean_prediction, mean_true_value) in pcs_ese_values.items():
-                color = color_map.get(pcs_ese_value, 'black')  # Use black as the default color
-                sns.scatterplot(x=[mean_true_value], y=[mean_prediction], ax=ax, color=color)
-            ax.set_title(f'Mean True vs Mean Predicted Values for {df_name}')
-            ax.set_xlabel('Mean True Values')
-            ax.set_ylabel('Mean Predicted Values')
-
-        # Display the figure
-        plt.tight_layout()
-        plt.show()
-
-        # Create a new figure for the legend
-        fig_legend = plt.figure(figsize=(10, 2))  # Adjust the figure size as needed
-
-        # Add the legend to the new figure
-        legend_patches = [mpatches.Patch(color=color, label=pcs_ese_value) for pcs_ese_value, color in color_map.items()]
-        plt.legend(handles=legend_patches, title='PCS_ESE', loc='center', ncol=3)  # Adjust the number of columns as needed
-        plt.axis('off')
-
-        # Display the legend
-        plt.show()
-    
-    def plot_residuals_vs_fitted(self):
-        num_dfs = len(self.predictions_dict)
-        num_cols = 3
-        num_rows = math.ceil(num_dfs / num_cols)
-
-        residuals_dict = {}
-        fitted_dict = {}
-
-        for df_name, values in self.predictions_dict.items():
-            residuals_dict[df_name] = {}
-            fitted_dict[df_name] = {}
-            for y_test, predictions, pcs_ese in values:
-                for pcs_ese_value in pcs_ese.unique():
-                    mask = pcs_ese == pcs_ese_value
-                    residuals = y_test[mask] - predictions[mask]
-                    # Standardize the residuals
-                    residuals /= residuals.std()
-                    residuals_dict[df_name][pcs_ese_value] = residuals
-                    fitted_dict[df_name][pcs_ese_value] = predictions[mask]
-
-        all_pcs_ese_values = set()
-        for _, values in self.predictions_dict.items():
-            for _, _, pcs_ese in values:
-                all_pcs_ese_values.update(pcs_ese.unique())
-
-        all_pcs_ese_values = sorted(all_pcs_ese_values)
-
-        color_palette = sns.color_palette('hsv', len(all_pcs_ese_values))
-
-        color_map = {pcs_ese_value: color for pcs_ese_value, color in zip(all_pcs_ese_values, color_palette)}
-
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
-
-        axes = axes.flatten()
-        for ax in axes[num_dfs:]:
-            fig.delaxes(ax)
-
-        for ax, (df_name, pcs_ese_values) in zip(axes, residuals_dict.items()):
-            for pcs_ese_value, residuals in pcs_ese_values.items():
-                color = color_map.get(pcs_ese_value, 'black')
-                fitted_values = fitted_dict[df_name][pcs_ese_value]
-                sns.scatterplot(x=fitted_values, y=residuals, ax=ax, color=color)
-            ax.axhline(0, color='red', linestyle='--')  # Add a horizontal line at y=0
-            ax.set_title(f'Standardized Residuals vs Fitted for {df_name}')
-            ax.set_xlabel('Fitted values')
-            ax.set_ylabel('Standardized Residuals')
-
-        plt.tight_layout()
-        plt.show()
-
-        fig_legend = plt.figure(figsize=(10, 2))
-
-        legend_patches = [mpatches.Patch(color=color, label=pcs_ese_value) for pcs_ese_value, color in color_map.items()]
-        plt.legend(handles=legend_patches, title='PCS_ESE', loc='center', ncol=3)
-        plt.axis('off')
-
-        plt.show()
-    
-    def plot_grouped_residuals_vs_fitted(self):
-        num_dfs = len(self.predictions_dict)
-        num_cols = 3
-        num_rows = math.ceil(num_dfs / num_cols)
-
-        residuals_dict = {}
-        fitted_dict = {}
-
-        for df_name, values in self.predictions_dict.items():
-            residuals_dict[df_name] = {}
-            fitted_dict[df_name] = {}
-            for y_test, predictions, pcs_ese in values:
-                for pcs_ese_value in pcs_ese.unique():
-                    mask = pcs_ese == pcs_ese_value
-                    residuals = y_test[mask] - predictions[mask]
-                    residuals_dict[df_name][pcs_ese_value] = residuals.mean()
-                    fitted_dict[df_name][pcs_ese_value] = predictions[mask].mean()
-
-        all_pcs_ese_values = set()
-        for _, values in self.predictions_dict.items():
-            for _, _, pcs_ese in values:
-                all_pcs_ese_values.update(pcs_ese.unique())
-
-        all_pcs_ese_values = sorted(all_pcs_ese_values)
-
-        color_palette = sns.color_palette('hsv', len(all_pcs_ese_values))
-
-        color_map = {pcs_ese_value: color for pcs_ese_value, color in zip(all_pcs_ese_values, color_palette)}
-
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10 * num_cols, 6 * num_rows))
-
-        axes = axes.flatten()
-        for ax in axes[num_dfs:]:
-            fig.delaxes(ax)
-
-        for ax, (df_name, pcs_ese_values) in zip(axes, residuals_dict.items()):
-            residuals_list = []
-            fitted_values_list = []
-            for pcs_ese_value, residuals in pcs_ese_values.items():
-                color = color_map.get(pcs_ese_value, 'black')
-                fitted_values = fitted_dict[df_name][pcs_ese_value]
-                sns.scatterplot(x=[fitted_values], y=[residuals], ax=ax, color=color)
-                residuals_list.append(residuals)
-                fitted_values_list.append(fitted_values)
-
-            # Calculate standard deviation of residuals
-            residuals_std = np.std(residuals_list)
-
-            # Define outlier threshold as 2.5 times the standard deviation
-            outlier_threshold = 2.5 * residuals_std
-
-            for pcs_ese_value, residuals in pcs_ese_values.items():
-                fitted_values = fitted_dict[df_name][pcs_ese_value]
-
-                # If the residuals are an outlier, add a label
-                if abs(residuals) > outlier_threshold:
-                    ax.text(fitted_values, residuals, pcs_ese_value, ha='center')
-
-            # Calculate lowess line for all data
-            lowess_line = lowess(residuals_list, fitted_values_list)
-
-            # Calculate upper and lower bounds for smoothed area
-            upper_bound = lowess_line[:, 1] + residuals_std
-            lower_bound = lowess_line[:, 1] - residuals_std
-
-            # Add smoothed area to plot
-            ax.fill_between(lowess_line[:, 0], lower_bound, upper_bound, color='black', alpha=0.2)
-
-            ax.axhline(0, color='red', linestyle='--')  # Add a horizontal line at y=0
-            ax.set_title(f'Mean Residuals vs Mean Fitted for {df_name}')
-            ax.set_xlabel('Mean Fitted values')
-            ax.set_ylabel('Mean Residuals')
-
-        plt.tight_layout()
-        plt.show()
-
-        fig_legend = plt.figure(figsize=(10, 2))
-
-        legend_patches = [mpatches.Patch(color=color, label=pcs_ese_value) for pcs_ese_value, color in color_map.items()]
-        plt.legend(handles=legend_patches, title='PCS_ESE', loc='center', ncol=3)
-        plt.axis('off')
-
-        plt.show()
-    
-   
-   
