@@ -15,7 +15,68 @@ from matplotlib.ticker import FuncFormatter
 
 
 
+
 class PipelineCorAnalysis:
+    """
+This class provides methods to create a bipartite graph, perform sanity checks, analyze the graph's connectivity, plot degree distributions, project graphs, 
+identify top markers, and perform Correspondence Analysis (CA) on the dataset.
+
+Attributes:
+    -----------
+    data_subset : pd.DataFrame
+        A subset of the Twitter data containing the required columns 'follower_id' and 'twitter_name'.
+    edgelist_name : str
+        The name of the edge list, derived from the provided data subset name.
+    subset_name : str
+        The name of the data subset.
+    B : nx.DiGraph
+        The bipartite graph created from the data subset (initialized in create_bipartite_graph method).
+    G_markers : nx.Graph
+        The unweighted projection of the markers (initialized in marker_projection method).
+    G2_markers : nx.Graph
+        The weighted projection of the markers (initialized in marker_projection method).
+    partition : dict
+        The partition of the graph computed by the Louvain method (initialized in calculate_communities method).
+    contingency_table : pd.DataFrame
+        The contingency table created for Correspondence Analysis (initialized in create_contingency_table method).
+    ca : prince.CA
+        The Correspondence Analysis model (initialized in perform_ca_analysis method).
+
+    Methods:
+    --------
+    get_edgelist_name(data_subset_name):
+        Returns the edge list name, which is identical to the provided data subset name.
+    create_bipartite_graph():
+        Creates a bipartite graph from the data subset.
+    sanity_checks():
+        Performs sanity checks on the bipartite graph.
+    connectedness():
+        Analyzes the connectedness of the bipartite graph.
+    plot_degree_cdf():
+        Plots the complementary cumulative distribution function (CCDF) for the in-degrees and out-degrees of the bipartite graph.
+    top_five_markers_in_degree():
+        Identifies and prints the top five markers based on in-degree centrality.
+    marker_projection():
+        Creates unweighted and weighted projections of the markers from the bipartite graph.
+    plot_w_marker_relations():
+        Plots the relationships between markers in the weighted projection graph.
+    calculate_communities():
+        Calculates and prints the number of communities using the Louvain method.
+    perform_graph_checks():
+        Runs a series of graph analysis methods.
+    create_contingency_table():
+        Creates a contingency table from the data subset.
+    perform_ca_analysis(save_path, n_components=100, n_iter=100):
+        Performs Correspondence Analysis on the contingency table and saves the results.
+    plot_variance():
+        Plots the percentage of variance explained by each dimension in the Correspondence Analysis.
+    get_unique_filepath(filepath):
+        Generates a unique file path to avoid overwriting existing files.
+    perform_ca_pipeline(save_path):
+        Runs the full CA pipeline: creating the contingency table, performing CA, and plotting variance.
+    run_all(save_path):
+        Executes all the main graph checks and the CA pipeline.
+"""
     def __init__(self, data_subset, data_subset_name):
         if not isinstance(data_subset, pd.DataFrame):
             raise ValueError("data_subset must be a pandas DataFrame")

@@ -21,6 +21,54 @@ import statsmodels.api as sm
 
 
 class CrossValidation:
+    """
+    A class used to perform cross-validation and weighted least squares (WLS) regression on multiple DataFrames.
+
+    Attributes
+    ----------
+    dfs : list of pd.DataFrame
+        List of DataFrames to perform analysis on.
+    predictors : list of str
+        List of column names to be used as predictors.
+    outcome : str
+        Column name of the outcome variable.
+    n_splits : int, optional
+        Number of splits for GroupKFold cross-validation (default is 10).
+    gkf : GroupKFold
+        GroupKFold object for cross-validation.
+    results_values : dict
+        Dictionary to store results values.
+    summary_outputs : list
+        List to store summary outputs.
+    residuals_dict : dict
+        Dictionary to store residuals for each DataFrame.
+
+    Methods
+    -------
+    fit()
+        Fits WLS models on the provided DataFrames and performs cross-validation.
+    fit_wls(df, i)
+        Fits a WLS model to a DataFrame and calculates metrics.
+    print_summaries()
+        Prints the summary of WLS models for each DataFrame.
+    cross_validation(df, i)
+        Performs cross-validation on a DataFrame and returns mean RMSE and R2 scores.
+    assess_normality()
+        Assesses normality of residuals using Q-Q plots and Shapiro-Wilk tests.
+    plot_fitted_vs_raw_data()
+        Plots fitted values vs raw data for each DataFrame.
+    plot_residuals()
+        Plots the distribution of residuals for each fold of cross-validation.
+    calculate_correlations_median(grouping_column)
+        Calculates Spearman correlation between predictors and outcome, grouped by a specified column.
+    plot_mean_true_vs_predicted()
+        Plots mean true vs mean predicted values for each DataFrame.
+    plot_residuals_vs_fitted()
+        Plots standardized residuals vs fitted values for each DataFrame.
+    plot_grouped_residuals_vs_fitted()
+        Plots mean residuals vs mean fitted values for each DataFrame.
+    """
+    
     def __init__(self, dfs, predictors, outcome, n_splits=10):
         self.dfs = dfs
         self.predictors = predictors
@@ -140,8 +188,6 @@ class CrossValidation:
 
         return CV_rmse_mean, CV_r2_mean
     
-
-    
     def assess_normality(self):
         for i, df in enumerate(self.dfs, start=1):  # start=1 to make the index 1-based
             # Fit a WLS model on the entire DataFrame
@@ -162,8 +208,6 @@ class CrossValidation:
             shapiro_test = shapiro(residuals)
             print(f'Shapiro-Wilk Test for DataFrame {i}: W={shapiro_test[0]}, p={shapiro_test[1]}')
     
-
-
 
     def plot_fitted_vs_raw_data(self):
         num_dfs = len(self.dfs)

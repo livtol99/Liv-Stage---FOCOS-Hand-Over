@@ -30,6 +30,26 @@ import networkx as nx
 import ftfy
 
 
+
+
+"""
+This utility file (`utils2.py`) contains a collection of functions used throughout the project for various purposes. 
+The functions are organized into distinct sections for ease of navigation and use:
+
+- Data inspection and stats functions
+
+- Data wrangling functions
+
+- Data filtering functions: Functions in this section are used to filter the data based on specific criteria, helping to narrow down the dataset to relevant subsets for analysis.
+
+- Bio processing, language detection, and other text-related functions
+
+- File loading functions
+
+- Plotting functions
+"""
+
+
 # -------------------
 # Data inspection and stats functions
 # -------------------
@@ -68,6 +88,7 @@ def summary_stats(df, print_dtypes=True):
         print(f"'{col}': ", df[col].isnull().sum())
     
     print("\nNumber of duplicate rows: ", df.duplicated().sum())
+
 def compare_column_values(df1, df2, column):
     """
     Compare the unique values of a specific column between two pandas DataFrames.
@@ -169,7 +190,18 @@ def location_bio_stats(df):
 # -------------------
 # Data wrangling functions
 # -------------------
+
 def assign_country(location, city_names):
+    """
+    Assigns country France based on the presence of french city names within a location string.
+    
+    Parameters:
+    - location (str): The location string to be analyzed.
+    - city_names (list or set): A collection of city names used to determine the country. Should be a french city names list.
+    
+    Returns:
+    - str: 'France' if a city name from the list is found in the location, 'Other' otherwise.
+    """
     if isinstance(location, str):
         for word in location.split():
             if word in city_names:
@@ -177,6 +209,24 @@ def assign_country(location, city_names):
     return 'Other'
 
 def filter_add_jobs_coords(file_number, jobdf):
+    """
+    Adds coordinates from the CA files to the job title file
+    
+    Parameters:
+    - file_number (int): The file number to construct the file path for coordinates data.
+    - jobdf (DataFrame): The DataFrame containing job data to be merged with coordinates.
+    
+    Returns:
+    - DataFrame: The merged DataFrame containing job data with added coordinates.
+    
+    Performs several steps:
+    - Reads coordinates data from a CSV file based on the provided file number.
+    - Filters the coordinates data to include only those present in the jobdf DataFrame.
+    - Merges the filtered coordinates data with the job data.
+    - Strips leading and trailing spaces from the 'title' column.
+    - Checks if the output directory exists, creates it if not.
+    - Saves the merged DataFrame to a CSV file in the specified directory.
+    """
     file_path = f"/home/livtollanes/NewData/coordinates/m{file_number}_coords/m{file_number}_row_coordinates.csv"
     print(f"Used file path: {file_path}") 
     df = pd.read_csv(file_path, sep = ',', dtype={'follower_id': str})
@@ -308,6 +358,19 @@ def filter_by_tweets_and_followers(df, min_followers, min_tweets):
     return df_filtered
 
 def min_french_followers(df, min_followers):
+
+    """
+    Filters a DataFrame to include only rows with a minimum number of French followers and provides information on removed rows.
+
+    Parameters:
+    - df (DataFrame): The input DataFrame containing social media data.
+    - min_followers (int): The minimum number of French followers required for a row to be included in the filtered DataFrame.
+
+    Returns:
+    - tuple: A tuple containing two DataFrames. The first DataFrame includes rows that meet the minimum French followers criterion. 
+             The second DataFrame contains information about the rows (brands) that were removed due to not meeting the criterion, 
+             including their Twitter name, marker followers, French followers, and type.
+    """
     # Filter rows with 'french_followers' less than min_followers
     filtered_df = df[df['french_followers'] >= min_followers]
 
@@ -330,10 +393,10 @@ def min_french_followers(df, min_followers):
 # Bio processing, language detection, and other text-related functions
 # -------------------
 
-def remove_emoji(string):
+def _remove_emoji(string):
     return emoji.demojize(string, delimiters=("<EMOJI:", ">"))
 
-def remove_emoji_descriptions(string):
+def _remove_emoji_descriptions(string):
     return re.sub(r'<EMOJI:.*?>', '', string)
 
 
@@ -352,9 +415,9 @@ def process_description(df, column):
     df = df.copy()
     def process_bio(bio):
         if pd.notnull(bio):
-            bio = remove_emoji(bio)
+            bio = _remove_emoji(bio)
             bio = unicodedata.normalize('NFKC', bio)
-            bio = remove_emoji_descriptions(bio)
+            bio = _remove_emoji_descriptions(bio)
             bio = regex.sub(r'[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}«»€]', '', bio)
             bio = ''.join(c for c in bio if c <= '\uFFFF')
         else:
@@ -401,7 +464,13 @@ def add_and_detect_language(df, column, seed=3, n_jobs=-1):
     df['language'] = Parallel(n_jobs=n_jobs)(delayed(_detect_language)(bio) for bio in df[column])
     return df
 
-def _process_text(text, stop_words):
+def process_text(text, stop_words):
+    """
+    Processes the input text by removing URLs, hashtags, mentions, punctuation, converting to lowercase, and removing stopwords.
+
+    Returns:
+    - list: A list of processed words from the input text.
+    """
     # Remove URLs
     text = re.sub(r'http\S+|www.\S+', '', text)
     # Replace hashtags and mentions with just the word
@@ -414,18 +483,89 @@ def _process_text(text, stop_words):
     words = [word for word in words if word not in stop_words]
     return words
 
+def get_ngrams(words, n):
+    """
+    Generates n-grams for a list of words up to a specified size.
 
-def write_ngrams_to_csv(ngrams, filename):
-    # Transform the data into a format suitable for CSV
-    ngrams_csv = [(' '.join(ngram), count) for ngram, count in ngrams]
+    This function creates n-grams for all numbers from 1 up to and including n. 
 
-    # Write the data to a CSV file
-    with open(filename, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Ngram", "Count"])  # write the header
-        writer.writerows(ngrams_csv)  # write the data
+    Parameters:
+    - words (list): A list of words from which to generate n-grams.
+    - n (int): The maximum size of the n-gram to generate.
+
+    Returns:
+    - list: A list of n-grams generated from the input list of words. Each n-gram is represented as a tuple of words.
+    """
+    # Create ngrams for all numbers up to and including n
+    ngram_list = []
+    for i in range(1, n+1):
+        ngram_list.extend(list(ngrams(words, i)))
+    return ngram_list
+
+def tokenize_bios(df, stop_words):
+    """
+    Tokenizes bios in a DataFrame and aggregates n-grams for each bio.
+
+    Utilizes `process_text` to clean and tokenize bios by removing URLs, hashtags, mentions, punctuation, 
+    converting to lowercase, and removing stopwords. It then generates and aggregates n-grams (for n=1, 2, 3) for each bio using 'get_ngrams'.
+
+    Parameters:
+    - df (pandas.DataFrame): DataFrame containing a column 'description_cleantext' with bios.
+    - stop_words (set): Set of stopwords to remove during tokenization.
+
+    Returns:
+    - pandas.DataFrame: Modified DataFrame with two additional columns:
+        - 'description_cleantext_tokens': Tokenized bios with stopwords removed.
+        - 'total_n_grams': Aggregated list of all n-grams (for n=1, 2, 3) generated from the tokenized bios.
+
+    The function modifies the input DataFrame in-place by adding the two columns and returns the modified DataFrame. The 'total_n_grams' column is populated by concatenating the lists of n-grams generated for each bio, for n values of 1, 2, and 3.
+    """
+    # Tokenize the bios
+    df['description_cleantext_tokens'] = df['description_cleantext'].apply(lambda x: process_text(x, stop_words))
+
+    # Initialize the total_n_grams column as an empty list
+    df['total_n_grams'] = [[] for _ in range(len(df))]
+
+    # Apply the get_ngrams function for n=1, 2, 3 and add the results to total_n_grams
+    for n in range(1, 4):
+        # Correctly describe the operation as concatenation of lists rather than summing
+        df['total_n_grams'] = df.apply(lambda row: row['total_n_grams'] + get_ngrams(row['description_cleantext_tokens'], n), axis=1)
+    
+    return df
+
+def preprocess_text(text, nlp):
+    """
+    Preprocesses text by converting to lowercase, removing stopwords and punctuation, and lemmatizing.
+    
+    Parameters:
+    - text (str): The text to preprocess.
+    - nlp: A spaCy language model.
+    
+    Returns:
+    - list: A list of lemmatized tokens from the text.
+    """
+    # Convert the text to lowercase
+    text = text.lower()
+    
+    # Parse the text with spaCy
+    doc = nlp(text)
+    
+    # Remove stopwords and punctuation, and lemmatize the words
+    tokens = [token.lemma_ for token in doc if not token.is_stop and not token.is_punct]
+    
+    return tokens
 
 def get_ngram_freq(text, n):
+    """
+    Calculates the frequency of n-grams in a text after preprocessing.
+    
+    Parameters:
+    - text (str): The text to analyze.
+    - n (int): The n-gram size.
+    
+    Returns:
+    - Counter: A Counter object with n-grams as keys and their frequencies as values.
+    """
     # Remove URLs
     text = re.sub(r'http\S+|www.\S+', '', text)
 
@@ -447,54 +587,69 @@ def get_ngram_freq(text, n):
     return ngram_freq
 
 
-def get_ngrams(words, n):
-    # Create ngrams for all numbers up to and including n
-    ngram_list = []
-    for i in range(1, n+1):
-        ngram_list.extend(list(ngrams(words, i)))
-    return ngram_list
-
 def separate_ngrams(ngrams):
+    """
+    Separates n-grams into unigrams, bigrams, and trigrams.
+    
+    Parameters:
+    - ngrams (list): A list of n-grams.
+    
+    Returns:
+    - dict: A dictionary with keys 'unigrams_detected', 'bigrams_detected', 'trigrams_detected' and their corresponding lists of n-grams.
+    """
     unigrams = [gram for gram in ngrams if len(gram) == 1 or (len(gram) == 2 and gram[1] == '')]
     bigrams = [gram for gram in ngrams if len(gram) == 2 and gram[1] != '']
     trigrams = [gram for gram in ngrams if len(gram) == 3]
     return {'unigrams_detected': unigrams, 'bigrams_detected': bigrams, 'trigrams_detected': trigrams}
 
-def tokenize_bios(df, stop_words):
-    # Tokenize the bios
-    df['description_cleantext_tokens'] = df['description_cleantext'].apply(lambda x: _process_text(x, stop_words))
+def write_ngrams_to_csv(ngrams, filename):
+    """
+    Writes n-grams and their counts to a CSV file.
 
-    # Initialize the total_n_grams column as an empty list
-    df['total_n_grams'] = [[] for _ in range(len(df))]
+    Parameters:
+    - ngrams (list of tuples): A list of tuples where each tuple contains an n-gram (as a tuple of words) and its count.
+    - filename (str): The path to the CSV file where the n-grams and counts will be written.
 
-    # Apply the get_ngrams function for n=1, 2, 3 and add the results to total_n_grams
-    for n in range(1, 4):
-        df['total_n_grams'] = df['total_n_grams'] + df['description_cleantext_tokens'].apply(lambda x: get_ngrams(x, n))
-    
-    return df
+    The function transforms the n-grams into a format suitable for CSV and writes them to the specified file, including a header row.
+    """
+    # Transform the data into a format suitable for CSV
+    ngrams_csv = [(' '.join(ngram), count) for ngram, count in ngrams]
+
+    # Write the data to a CSV file
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Ngram", "Count"])  # write the header
+        writer.writerows(ngrams_csv)  # write the data
+
 
 
 def find_all_matches2(bio_ngrams, income_df):
+    """
+    Identifies matches between a list of n-grams and n-grams in a DataFrame, returning associated values.
+
+    This function checks for any overlap between a list of n-grams (bio_ngrams) and n-grams stored in a DataFrame column ('ngrams'). It only considers n-grams longer than one word. For rows in the DataFrame where there's an overlap, it collects values from the 'PCS_ESE' column into a list.
+
+    Parameters:
+    - bio_ngrams (list): A list of n-grams to match against the DataFrame.
+    - income_df (pandas.DataFrame): A DataFrame with at least two columns: 'ngrams' containing n-grams and 'PCS_ESE' containing values to return for matches.
+
+    Returns:
+    - list: A list of 'PCS_ESE' values from the DataFrame where there's an overlap with the bio_ngrams.
+    """
     overlap = income_df['ngrams'].apply(lambda x: any(i in x for i in bio_ngrams if len(i.split()) > 1))
     matches = income_df.loc[overlap, 'PCS_ESE'].tolist()
     return matches
 
-def preprocess_text(text, nlp):
-    # Convert the text to lowercase
-    text = text.lower()
-    
-    # Parse the text with spaCy
-    doc = nlp(text)
-    
-    # Remove stopwords and punctuation, and lemmatize the words
-    tokens = [token.lemma_ for token in doc if not token.is_stop and not token.is_punct]
-    
-    return tokens
 
 
 # -------------------
 # File loading functions
 # -------------------
+"""
+These functions are used to more quickly access the many coordinate files generated from the CA pipeline
+"""
+
+
 def load_all_row_coords_files(n):
     files = []  # list to store all dataframes
 
@@ -543,6 +698,23 @@ def load_CA_model_files(n):
 # -------------------
 
 def plot_all_brands_together(df, dimension, fontsize= 6):
+    """
+    Plots all brands together on a scatter plot, colored by type and annotated with Twitter names.
+
+    This function creates a scatter plot for a given DataFrame, where each point represents a brand. Points are colored based on the brand's type and annotated with the brand's Twitter name. The position on the x-axis is determined by a specified dimension, and each brand is assigned a unique y-value to spread them out evenly.
+
+    Parameters:
+    - df (pandas.DataFrame): The DataFrame containing brand data.
+    - dimension (str): The column name in df to use for positioning brands along the x-axis.
+    - fontsize (int, optional): The font size for the annotations. Defaults to 6.
+
+    The DataFrame must contain the following columns:
+    - 'type2': The type of each brand, which determines the point's color.
+    - 'twitter_name': The Twitter handle of each brand, used for annotations.
+
+    A color dictionary within the function maps 'type2' values to specific colors.
+    """
+    
     # Manually specify a color palette
     color_dict = {'consumption': 'blue', 'information': 'yellowgreen', 'football clubs': 'mediumvioletred', 'education': 'darkorange'}
 

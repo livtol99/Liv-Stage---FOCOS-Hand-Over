@@ -7,7 +7,16 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 
+
+
 class CorgPipeline:
+    """
+    A class to perform various analyses and visualizations on coordinate data for CORG models.
+
+    This class provides methods to load data, plot data, fit benchmark and discover models, 
+    and perform projections based on the CORG methodology.
+
+    """
     def __init__(self, file_number, n_dimensions):
         self.file_number = file_number
         self.n_dimensions = n_dimensions
