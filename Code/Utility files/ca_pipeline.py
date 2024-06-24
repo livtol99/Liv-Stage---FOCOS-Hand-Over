@@ -169,11 +169,11 @@ Attributes:
         # Plot the CCDF on a log-log scale
         plt.figure(figsize=(10, 7))
         plt.loglog(bin_edges[:-1], ccdf, marker='.')
-        plt.xlabel('Out-Degree')
-        plt.ylabel('CCDF')
+        plt.xlabel('Degree (k)')
+        plt.ylabel('Log-Log Probability of Degree Greater Than x')
 
         # Include subset_name in the title
-        plt.title(f'CCDF of Out-Degrees on a log-log scale for {self.subset_name}')
+        plt.title(f'Out-Degree Distribution for {self.subset_name}')
 
         plt.show()
 
@@ -185,11 +185,11 @@ Attributes:
         # Plot the CCDF on a log-log scale
         plt.figure(figsize=(10, 7))
         plt.loglog(bin_edges[:-1], ccdf, marker='.', color='green')
-        plt.xlabel('In-Degree')
-        plt.ylabel('CCDF')
+        plt.xlabel('Degree (k)')
+        plt.ylabel('Log-Log Probability of Degree Greater Than x')
 
         # Include subset_name in the title
-        plt.title(f'CCDF of In-Degrees on a log-log scale for {self.subset_name}')
+        plt.title(f'In-Degree Distribution for {self.subset_name}')
 
         plt.show()
     
@@ -382,7 +382,7 @@ Attributes:
         ax.spines['top'].set_visible(False)
 
         # Include subset_name in the title
-        ax.set_title(f'Percentage of Inertia Explained per Dimension for {self.subset_name}')
+        ax.set_title(f'Inertia Explained per Dimension ({self.subset_name})')
 
         plt.show()
 
