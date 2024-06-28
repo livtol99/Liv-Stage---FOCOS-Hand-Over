@@ -116,5 +116,6 @@ https://github.com/pedroramaciotti/CORG/blob/main/tutorial/CORG_quickstart.ipynb
 However, the results ended up being ambiguous. High F-scores were obtained for many models, and it was hard to select between them. We attributed this to the difficulty in labelling SES markers as either high or low SES due to the abiguity inherent to the concept. It is not like polituical parties, where one could be fairly sure that the labelling in advance was correct. Also, another issue was that we were unable to actually lable a lot of the markers to have anough representation of H/L markers for all models. This furtehr impeeded using this approach in model selection. 
 
 ## 5. Contact Information
-au e-mail: liv.tollanes@gmail.com
+e-mail: liv.tollanes@gmail.com
+
 
