@@ -107,7 +107,7 @@ markers_followers_bios_2023-05-19.csv = follower metadata + bios
 
 
 ## 4. The CORG-approach
-I attempted to implement the CORG approach as a step in the model selection. The aim was to label certain marers as high or low SES based on assumptions, and identify the dimension that best separated the classififed markers. The approach is the CORG-approach created by the FOCOS group:
+I attempted to implement the CORG approach as a step in the model selection. The aim was to label markers for which we could be sure were either high or low SES, use this to identify the dimension that best separated the classififed markers, and project all data points onto this newly identified dimension. The approach is the CORG-approach created by the FOCOS group:
 https://github.com/pedroramaciotti/CORG/blob/main/tutorial/CORG_quickstart.ipynb 
 
 However, the results ended up being ambiguous. High F-scores were obtained for many models, and it was hard to select between them. We attributed this to the difficulty in labelling SES markers as either high or low SES due to the abiguity inherent to the concept. It is not like polituical parties, where one could be fairly sure that the labelling in advance was correct. Also, another issue was that we were unable to actually lable a lot of the markers to have anough representation of H/L markers for all models. This furtehr impeeded using this approach in model selection. 
