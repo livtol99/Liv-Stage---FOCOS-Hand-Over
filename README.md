@@ -70,9 +70,11 @@ Income was obtained by retrieving self reported job titles via an N-gram frequen
 - **requirements_backup.txt**: A backup file for an old virtual environment.
 
 
-## 3. Data
+## 3. Data Locations in Server
 The data collection took place in March 2023, and access was granted for use in the current study through my affiliations with the Formal Computational Socio-Politics Group at the Learning Planet Institute in Paris and Institut des Systèmes Complexes de Paris Île-de-France (ISC - PIF). It is not accessible in this repository, meaning that the code in the repository cannot be ran without an application for data access. 
 
-## 4. Contact Information
-au e-mail: 201905665@post.au.dk
+## 4. The CORG-approach
+
+## 5. Contact Information
+au e-mail: liv.tollanes@gmail.com
 
