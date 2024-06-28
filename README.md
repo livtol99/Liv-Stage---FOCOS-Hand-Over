@@ -101,9 +101,12 @@ However, I have collected some "crucial" data files, on request, in the folder *
 - **labeled_edgelist_hl.csv**: Full french edgelist with all filters, but added high and low labels to use in CORG approach. Used as input to the CA.
 
 ### Raw data placements
-All the data in their non filtered form is placed in /home/livtollanes/SocialMarkers. 
-markers_followers_2023-05-19.csv = the raw edgelist
-markers_followers_bios_2023-05-19.csv = follower metadata + bios
+All the data in their non filtered form is placed in **/home/livtollanes/SocialMarkers.** 
+- **markers_followers_2023-05-19.csv** = the raw edgelist
+- **markers_followers_bios_2023-05-19.csv** = follower metadata + bios
+- **MarkersFrenchTwitter.xlsx** = info about the selected markers, also what type they are
+- **markers_bios_2023-05-19.csv** = marker bios and metadata
+  
 
 
 ## 4. The CORG-approach
