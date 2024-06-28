@@ -76,7 +76,7 @@ Income was obtained by retrieving self reported job titles via an N-gram frequen
 The data collection took place in March 2023, and access was granted for use in the current study through my affiliations with the Formal Computational Socio-Politics Group at the Learning Planet Institute in Paris and Institut des Systèmes Complexes de Paris Île-de-France (ISC - PIF). It is not accessible in this repository, meaning that the code in the repository cannot be ran without an application for data access. 
 
 All the files I have used throughout the project are currently in the ssh server under /home/livtollanes/NewData. 
-However, I have collected some "crucial" data files, on request, in the folder /home/livtollanes/final_data. The collected data folder has the following structure:
+However, I have collected some "crucial" data files, on request, in the folder **/home/livtollanes/final_data.** The collected data folder has the following structure:
 
 ```
 ├── annotations
